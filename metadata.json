@@ -1,0 +1,6 @@
+{
+  "name": "Restaurant Management SaaS",
+  "description": "A premium, end-to-end full-stack digital operating system for luxury restaurants featuring voice-assisted client menus, live kitchen queues, real-time admin approvals, gold-accented seat signatures, thermal printing invoice logs, and financial ledger analytics.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
