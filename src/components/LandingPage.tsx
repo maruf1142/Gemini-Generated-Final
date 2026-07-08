@@ -18,7 +18,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onNavigateToCustomer, 
   onNavigateToDashboard 
 }) => {
-  const { currentRole, login, logout } = useApp();
+  const { currentRole, login, logout, requestPasswordReset } = useApp();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [username, setUsername] = useState('');
@@ -229,7 +229,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
               {/* Password Input */}
               <div className="space-y-1">
-                <label className="text-xs text-zinc-400 font-mono block">Password</label>
+                <div className="flex justify-between items-center">
+                  <label className="text-xs text-zinc-400 font-mono block">Password</label>
+                  {['admin', 'kitchen', 'owner'].includes(selectedRole || '') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetUser = username || selectedRole || '';
+                        const result = requestPasswordReset(targetUser, selectedRole as Role);
+                        if (result.success) {
+                          showToast('Password reset requested. Please ask Super Admin to approve it.', 'success');
+                        } else {
+                          showToast(result.error || 'Request failed.', 'error');
+                        }
+                      }}
+                      className="text-[10px] text-gold-400/80 hover:text-gold-300 transition-colors font-mono cursor-pointer"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}

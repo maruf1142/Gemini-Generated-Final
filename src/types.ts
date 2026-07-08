@@ -73,3 +73,12 @@ export interface RevenueSummary {
   totalOrders: number;
   averageOrderValue: number;
 }
+
+export interface PasswordResetRequest {
+  id: string;
+  role: Role;
+  username: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  requestedAt: string;
+  tempPasswordHash?: string;
+}

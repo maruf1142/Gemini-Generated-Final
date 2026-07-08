@@ -8,13 +8,22 @@ import { useApp } from '../context/AppContext';
 import { MenuItem, Role } from '../types';
 import { 
   Plus, Edit2, Trash2, Key, Sparkles, Check, X, ShieldAlert, 
-  Eye, Image, Sliders, DollarSign, ArrowLeft, ClipboardList, ChevronRight 
+  Eye, Image, Sliders, DollarSign, ArrowLeft, ClipboardList, ChevronRight, Percent 
 } from 'lucide-react';
 import { showToast } from './Notification';
 
 interface SuperAdminDashboardProps {
   onNavigateToRole: (role: Role) => void;
   onLogout: () => void;
+}
+
+interface QuickEditConfig {
+  title: string;
+  description: string;
+  placeholder?: string;
+  initialValue: string;
+  validate: (val: string) => string | null;
+  onConfirm: (val: string) => void;
 }
 
 const LUXURY_PRESET_IMAGES = [
@@ -37,13 +46,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
     deleteMenuItem, 
     updateItemPrice, 
     updateItemVat, 
+    updateAllItemsVat, 
     updateItemDiscount, 
     toggleItemAvailability,
     adminPassword,
-    updatePassword
+    updatePassword,
+    passwordResetRequests,
+    approvePasswordReset,
+    rejectPasswordReset
   } = useApp();
 
   // State managers
+  const [activeTab, setActiveTab] = useState<'menu' | 'resets'>('menu');
+  const [approvedTempPassword, setApprovedTempPassword] = useState<string | null>(null);
   const [showItemModal, setShowItemModal] = useState<boolean>(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   
@@ -64,6 +79,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
   // Password change states
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
   const [newPasswordInput, setNewPasswordInput] = useState<string>('');
+
+  // Quick Numeric Edit Modal states
+  const [quickEditConfig, setQuickEditConfig] = useState<QuickEditConfig | null>(null);
+  const [quickEditValue, setQuickEditValue] = useState<string>('');
+  const [quickEditError, setQuickEditError] = useState<string | null>(null);
 
   // Authentication Guard
   if (currentRole !== 'superadmin') {
@@ -221,6 +241,27 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
     }
   };
 
+  const handleBulkUpdateVat = () => {
+    setQuickEditConfig({
+      title: 'Bulk VAT Update',
+      description: 'Enter the new VAT rate (%) to apply to ALL menu items at once.',
+      placeholder: 'e.g. 15',
+      initialValue: '15',
+      validate: (val) => {
+        const num = parseFloat(val);
+        if (isNaN(num) || num < 0) return 'Please enter a valid VAT rate (0 or higher).';
+        return null;
+      },
+      onConfirm: (val) => {
+        const parsedVat = parseFloat(val);
+        updateAllItemsVat(parsedVat);
+        showToast(`Successfully updated VAT rate to ${parsedVat}% for all menu items.`, 'success');
+      }
+    });
+    setQuickEditValue('15');
+    setQuickEditError(null);
+  };
+
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPasswordInput.trim() || newPasswordInput.length < 4) {
@@ -258,11 +299,37 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
             </div>
 
             <button 
-              onClick={() => onNavigateToRole('superadmin')}
-              className="w-full flex items-center gap-3 bg-gold-950/30 text-gold-400 border border-gold-500/20 py-2.5 px-4 rounded-xl font-medium cursor-pointer"
+              onClick={() => {
+                setActiveTab('menu');
+                onNavigateToRole('superadmin');
+              }}
+              className={`w-full flex items-center gap-3 py-2.5 px-4 rounded-xl font-medium cursor-pointer transition-all border ${
+                activeTab === 'menu'
+                  ? 'bg-gold-950/30 text-gold-400 border-gold-500/20'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 border-transparent'
+              }`}
             >
               <Sliders className="w-4 h-4" />
               Gourmet Menu Controls
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('resets')}
+              className={`w-full flex items-center justify-between py-2.5 px-4 rounded-xl font-medium cursor-pointer transition-all border ${
+                activeTab === 'resets'
+                  ? 'bg-gold-950/30 text-gold-400 border-gold-500/20'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 border-transparent'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Key className="w-4 h-4" />
+                Password Resets
+              </span>
+              {passwordResetRequests.filter(r => r.status === 'pending').length > 0 && (
+                <span className="bg-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse font-mono">
+                  {passwordResetRequests.filter(r => r.status === 'pending').length}
+                </span>
+              )}
             </button>
             
             <button 
@@ -300,11 +367,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
           </nav>
         </div>
 
-        {/* Logout */}
-        <div className="space-y-3 pt-8 border-t border-zinc-800/60 mt-8">
+        {/* Security & Logout */}
+        <div className="space-y-2 pt-8 border-t border-zinc-800/60 mt-8">
+          <button
+            onClick={() => {
+              setNewPasswordInput('');
+              setShowPasswordModal(true);
+            }}
+            className="w-full flex items-center justify-center gap-2 bg-zinc-950 text-zinc-400 hover:text-gold-400 py-2 rounded-lg cursor-pointer text-xs font-sans transition-colors border border-zinc-900 hover:border-gold-500/20"
+          >
+            <Key className="w-3.5 h-3.5" />
+            Change Password
+          </button>
+
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 bg-zinc-950 text-zinc-400 hover:text-red-400 py-2 rounded-lg cursor-pointer text-xs font-sans transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-zinc-950 text-zinc-400 hover:text-red-400 py-2 rounded-lg cursor-pointer text-xs font-sans transition-colors border border-zinc-900 hover:border-red-500/20"
           >
             Log Out Console
           </button>
@@ -315,8 +393,126 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
       {/* Main Panel */}
       <main className="flex-1 p-6 md:p-8 space-y-8 overflow-y-auto">
         
-        {/* Top welcome */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gold-500/5 pb-6">
+        {activeTab === 'resets' ? (
+          <>
+            {/* Resets Top Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gold-500/5 pb-6">
+              <div>
+                <h2 className="font-serif text-3xl font-bold tracking-tight text-zinc-100 flex items-center gap-2">
+                  Password Reset Console
+                  <Key className="w-5 h-5 text-gold-400 animate-pulse" />
+                </h2>
+                <p className="text-xs text-zinc-500 mt-1">
+                  View and manage administrative password reset requests. Approved requests will generate cryptographically secure temporary passwords.
+                </p>
+              </div>
+            </div>
+
+            {/* Resets Content */}
+            <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl overflow-hidden shadow-lg animate-fade-in">
+              <div className="p-5 border-b border-zinc-800/60 bg-zinc-950/20 flex items-center justify-between">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                  Pending & Historical Requests
+                </span>
+                <span className="bg-zinc-800 border border-zinc-700/60 text-[10px] text-zinc-400 font-mono px-2.5 py-1 rounded-full">
+                  Total Requests: {passwordResetRequests.length}
+                </span>
+              </div>
+
+              {passwordResetRequests.length === 0 ? (
+                <div className="p-12 text-center text-zinc-500">
+                  <Key className="w-10 h-10 text-zinc-600 mx-auto mb-3 animate-pulse" />
+                  <p className="font-serif text-sm">No password reset requests found</p>
+                  <p className="text-[10px] font-mono mt-1 text-zinc-600">Administrative request logs are currently empty</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-zinc-950 text-zinc-400 border-b border-zinc-800 font-mono uppercase tracking-wider">
+                        <th className="p-4">User Details</th>
+                        <th className="p-4">Requested At</th>
+                        <th className="p-4 text-center">Status</th>
+                        <th className="p-4 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 text-zinc-300 font-sans">
+                      {passwordResetRequests.map(request => (
+                        <tr key={request.id} className="hover:bg-zinc-900/25 transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-gold-950/20 border border-gold-500/10 flex items-center justify-center text-gold-400">
+                                <span className="font-mono font-bold uppercase">{request.username.charAt(0)}</span>
+                              </div>
+                              <div>
+                                <h4 className="font-serif font-bold text-zinc-100 text-sm">{request.username === 'admin' ? 'Restaurant Admin' : request.username}</h4>
+                                <span className="text-[10px] font-mono text-zinc-500 block">Role: {request.role.toUpperCase()}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-4 font-mono text-zinc-400">
+                            {new Date(request.requestedAt).toLocaleString()}
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className={`py-1 px-2.5 rounded-full font-mono text-[10px] font-bold border inline-block ${
+                              request.status === 'pending'
+                                ? 'bg-amber-500/15 border-amber-500/30 text-amber-400 animate-pulse'
+                                : request.status === 'approved'
+                                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                                : 'bg-red-500/15 border-red-500/30 text-red-400'
+                            }`}>
+                              {request.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="p-4 text-center">
+                            {request.status === 'pending' ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    const result = approvePasswordReset(request.id);
+                                    if (result.success && result.tempPassword) {
+                                      setApprovedTempPassword(result.tempPassword);
+                                      showToast('Request approved successfully!', 'success');
+                                    } else {
+                                      showToast(result.error || 'Approval failed.', 'error');
+                                    }
+                                  }}
+                                  className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-1.5 px-3.5 rounded-lg text-xs cursor-pointer transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.02]"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const result = rejectPasswordReset(request.id);
+                                    if (result.success) {
+                                      showToast('Request rejected.', 'info');
+                                    } else {
+                                      showToast(result.error || 'Rejection failed.', 'error');
+                                    }
+                                  }}
+                                  className="flex items-center gap-1.5 bg-zinc-800 hover:bg-red-500 hover:text-white text-zinc-400 font-bold py-1.5 px-3.5 rounded-lg text-xs cursor-pointer transition-all border border-zinc-700/50 hover:border-transparent hover:scale-[1.02]"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-zinc-500 font-mono text-[10px]">No Actions Pending</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Top welcome */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gold-500/5 pb-6">
           <div>
             <h2 className="font-serif text-3xl font-bold tracking-tight text-zinc-100 flex items-center gap-2">
               Menu Configuration
@@ -325,13 +521,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
             <p className="text-xs text-zinc-500 mt-1">Add, edit, adjust prices, VAT, discounts, or toggle immediate availability.</p>
           </div>
 
-          <button
-            onClick={handleOpenAdd}
-            className="bg-gradient-to-r from-gold-500 to-gold-600 text-zinc-950 font-sans font-bold py-2.5 px-5 rounded-lg hover:from-gold-400 hover:to-gold-500 shadow-md transition-all cursor-pointer flex items-center gap-1.5 text-xs"
-          >
-            <Plus className="w-4 h-4" />
-            Add Menu Item
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleBulkUpdateVat}
+              className="bg-zinc-800 border border-zinc-700/60 hover:border-gold-500/35 hover:bg-zinc-800/80 text-gold-400 font-sans font-medium py-2.5 px-4 rounded-lg shadow-md transition-all cursor-pointer flex items-center gap-1.5 text-xs"
+              title="Change VAT rate for all menu items at once"
+            >
+              <Percent className="w-3.5 h-3.5 text-gold-400" />
+              Set Bulk VAT
+            </button>
+
+            <button
+              onClick={handleOpenAdd}
+              className="bg-gradient-to-r from-gold-500 to-gold-600 text-zinc-950 font-sans font-bold py-2.5 px-5 rounded-lg hover:from-gold-400 hover:to-gold-500 shadow-md transition-all cursor-pointer flex items-center gap-1.5 text-xs"
+            >
+              <Plus className="w-4 h-4" />
+              Add Menu Item
+            </button>
+          </div>
         </div>
 
         {/* Menu Management Table/List Layout */}
@@ -343,7 +550,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                   <th className="p-4">Dish Details</th>
                   <th className="p-4">Category</th>
                   <th className="p-4 text-right">Base Price</th>
-                  <th className="p-4 text-center">VAT Rate</th>
+                  <th 
+                    onClick={handleBulkUpdateVat}
+                    className="p-4 text-center cursor-pointer hover:bg-zinc-900 hover:text-gold-400 transition-colors group select-none"
+                    title="Click to set VAT rate for all items at once"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>VAT Rate</span>
+                      <Edit2 className="w-3 h-3 text-gold-500 group-hover:scale-110 group-hover:text-gold-400 transition-all" />
+                    </div>
+                  </th>
                   <th className="p-4 text-center">Discount</th>
                   <th className="p-4 text-center">Availability</th>
                   <th className="p-4 text-center">Actions</th>
@@ -389,11 +605,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                         <span className="text-gold-400 font-bold">{item.price.toFixed(2)}</span>
                         <button
                           onClick={() => {
-                            const newPrice = prompt(`Enter new base price for ${item.name}:`, item.price.toString());
-                            if (newPrice && !isNaN(Number(newPrice)) && Number(newPrice) > 0) {
-                              updateItemPrice(item.id, Number(newPrice));
-                              showToast(`Price updated for ${item.name}`, 'success');
-                            }
+                            setQuickEditConfig({
+                              title: `Update Price: ${item.name}`,
+                              description: 'Adjust the base price for this menu item.',
+                              initialValue: item.price.toString(),
+                              placeholder: 'e.g. 15.00',
+                              validate: (val) => {
+                                const num = parseFloat(val);
+                                if (isNaN(num) || num <= 0) return 'Please enter a valid price (greater than 0).';
+                                return null;
+                              },
+                              onConfirm: (val) => {
+                                updateItemPrice(item.id, parseFloat(val));
+                                showToast(`Price updated for ${item.name}`, 'success');
+                              }
+                            });
+                            setQuickEditValue(item.price.toString());
+                            setQuickEditError(null);
                           }}
                           className="p-0.5 bg-zinc-800 hover:bg-gold-500 hover:text-zinc-950 text-zinc-400 rounded cursor-pointer"
                           title="Quick Price change"
@@ -409,11 +637,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                         <span>{item.vat}%</span>
                         <button
                           onClick={() => {
-                            const newVat = prompt(`Enter new VAT% rate for ${item.name}:`, item.vat.toString());
-                            if (newVat && !isNaN(Number(newVat)) && Number(newVat) >= 0) {
-                              updateItemVat(item.id, Number(newVat));
-                              showToast(`VAT rate updated for ${item.name}`, 'success');
-                            }
+                            setQuickEditConfig({
+                              title: `Update VAT Rate: ${item.name}`,
+                              description: 'Adjust the VAT rate (%) for this menu item.',
+                              initialValue: item.vat.toString(),
+                              placeholder: 'e.g. 15',
+                              validate: (val) => {
+                                const num = parseFloat(val);
+                                if (isNaN(num) || num < 0) return 'Please enter a valid VAT rate (0 or higher).';
+                                return null;
+                              },
+                              onConfirm: (val) => {
+                                updateItemVat(item.id, parseFloat(val));
+                                showToast(`VAT rate updated for ${item.name}`, 'success');
+                              }
+                            });
+                            setQuickEditValue(item.vat.toString());
+                            setQuickEditError(null);
                           }}
                           className="p-0.5 bg-zinc-800 hover:bg-gold-500 hover:text-zinc-950 text-zinc-400 rounded cursor-pointer"
                         >
@@ -430,11 +670,23 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                         </span>
                         <button
                           onClick={() => {
-                            const newDiscount = prompt(`Enter new discount% rate for ${item.name}:`, item.discount.toString());
-                            if (newDiscount && !isNaN(Number(newDiscount)) && Number(newDiscount) >= 0 && Number(newDiscount) <= 100) {
-                              updateItemDiscount(item.id, Number(newDiscount));
-                              showToast(`Discount percentage updated for ${item.name}`, 'success');
-                            }
+                            setQuickEditConfig({
+                              title: `Update Discount: ${item.name}`,
+                              description: 'Adjust the discount percentage (%) for this menu item.',
+                              initialValue: item.discount.toString(),
+                              placeholder: 'e.g. 10',
+                              validate: (val) => {
+                                const num = parseFloat(val);
+                                if (isNaN(num) || num < 0 || num > 100) return 'Please enter a valid discount rate (0 to 100).';
+                                return null;
+                              },
+                              onConfirm: (val) => {
+                                updateItemDiscount(item.id, parseFloat(val));
+                                showToast(`Discount percentage updated for ${item.name}`, 'success');
+                              }
+                            });
+                            setQuickEditValue(item.discount.toString());
+                            setQuickEditError(null);
                           }}
                           className="p-0.5 bg-zinc-800 hover:bg-rose-500 hover:text-white text-zinc-400 rounded cursor-pointer"
                         >
@@ -486,6 +738,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
             </table>
           </div>
         </div>
+          </>
+        )}
 
       </main>
 
@@ -962,6 +1216,121 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Numeric Edit Modal */}
+      {quickEditConfig && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+          <div className="glass-panel w-full max-w-sm p-6 rounded-2xl shadow-2xl border border-gold-500/30 bg-zinc-950">
+            <div className="text-center mb-5">
+              <div className="w-11 h-11 rounded-full border border-gold-500/20 bg-zinc-900 flex items-center justify-center text-gold-400 mx-auto mb-2">
+                <Percent className="w-5 h-5 text-gold-400 animate-pulse" />
+              </div>
+              <h3 className="font-serif text-xl font-semibold text-zinc-50">{quickEditConfig.title}</h3>
+              <p className="text-xs text-zinc-500 mt-1">{quickEditConfig.description}</p>
+            </div>
+
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                const validationMsg = quickEditConfig.validate(quickEditValue);
+                if (validationMsg) {
+                  setQuickEditError(validationMsg);
+                  return;
+                }
+                quickEditConfig.onConfirm(quickEditValue);
+                setQuickEditConfig(null);
+              }}
+              className="space-y-4"
+            >
+              <div className="space-y-1">
+                <label className="text-xs text-zinc-400 font-mono block">New Value</label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder={quickEditConfig.placeholder || "Enter value..."}
+                  value={quickEditValue}
+                  onChange={(e) => {
+                    setQuickEditValue(e.target.value);
+                    if (quickEditError) setQuickEditError(null);
+                  }}
+                  className="w-full bg-zinc-900 border border-gold-500/10 rounded-lg py-2.5 px-3 text-center text-lg font-mono font-bold text-zinc-100 focus:outline-none focus:border-gold-500"
+                />
+                {quickEditError && (
+                  <p className="text-xs text-rose-500 font-mono mt-1 text-center">{quickEditError}</p>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-gold-500 to-gold-600 text-zinc-950 font-bold py-2 rounded-lg cursor-pointer hover:from-gold-400 hover:to-gold-500 text-xs shadow-md transition-all"
+                >
+                  Confirm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickEditConfig(null)}
+                  className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-750 text-xs cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Temporary Password One-Time Display Modal */}
+      {approvedTempPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="glass-panel w-full max-w-md p-6 rounded-2xl shadow-2xl border-gold-500/40 bg-zinc-950 text-center space-y-6">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto animate-bounce">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-serif text-xl font-bold text-zinc-100 tracking-wide">
+                Security Key Generated
+              </h3>
+              <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                Below is the one-time temporary password for <span className="text-gold-400 font-bold">Restaurant Admin</span>. 
+                For maximum security, this password has been hashed using bcrypt, and the plain-text password is <span className="text-red-400 font-bold underline">never stored</span>.
+              </p>
+            </div>
+
+            <div className="bg-zinc-900 border border-gold-500/20 p-4 rounded-xl relative group font-mono text-lg text-gold-400 font-bold tracking-widest flex items-center justify-center gap-3">
+              <span>{approvedTempPassword}</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(approvedTempPassword);
+                  showToast('Temporary password copied!', 'success');
+                }}
+                className="text-[10px] bg-zinc-800 text-zinc-400 hover:text-gold-400 font-sans px-2.5 py-1 rounded-lg hover:bg-zinc-700 transition-colors font-semibold cursor-pointer absolute right-2.5"
+              >
+                Copy
+              </button>
+            </div>
+
+            <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg text-[10px] text-red-400 font-mono text-left space-y-1">
+              <p className="font-bold uppercase flex items-center gap-1">
+                ⚠️ Critical Security Warning:
+              </p>
+              <p>This password will be displayed ONLY ONCE. Once you click "Acknowledge", it can never be retrieved or shown again.</p>
+            </div>
+
+            <button
+              onClick={() => {
+                setApprovedTempPassword(null);
+                showToast('Temporary password dismissed.', 'info');
+              }}
+              className="w-full bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-400 hover:to-gold-500 text-zinc-950 font-bold py-3 rounded-xl transition-all cursor-pointer font-sans shadow-md text-sm"
+            >
+              Acknowledge & Close
+            </button>
           </div>
         </div>
       )}

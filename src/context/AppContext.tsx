@@ -4,9 +4,10 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { MenuItem, Order, CartItem, Role, OrderStatus, OrderType } from '../types';
+import { MenuItem, Order, CartItem, Role, OrderStatus, OrderType, PasswordResetRequest } from '../types';
 import { DEFAULT_MENU } from '../data/defaultMenu';
 import { getBangladeshDateString, getBangladeshTimeString } from '../utils';
+import bcrypt from 'bcryptjs';
 
 interface AppContextType {
   menuItems: MenuItem[];
@@ -18,6 +19,12 @@ interface AppContextType {
   currentTable: string;
   specialNotes: string;
   orderType: OrderType;
+  
+  // Password Reset Workflow
+  passwordResetRequests: PasswordResetRequest[];
+  requestPasswordReset: (username: string, role: Role) => { success: boolean; error?: string };
+  approvePasswordReset: (requestId: string) => { success: boolean; tempPassword?: string; error?: string };
+  rejectPasswordReset: (requestId: string) => { success: boolean; error?: string };
   
   // Auth
   login: (username: string, password: string, targetRole: Role) => { success: boolean; error?: string };
@@ -48,6 +55,7 @@ interface AppContextType {
   deleteMenuItem: (id: string) => void;
   updateItemPrice: (id: string, price: number) => void;
   updateItemVat: (id: string, vat: number) => void;
+  updateAllItemsVat: (vat: number) => void;
   updateItemDiscount: (id: string, discount: number) => void;
   toggleItemAvailability: (id: string) => void;
   
@@ -63,6 +71,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
   
   // Separate passwords for each dashboard / portal
   const [adminPass, setAdminPass] = useState<string>('admin123');
@@ -99,6 +108,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const storedCart = localStorage.getItem('saas_restaurant_cart');
       if (storedCart) {
         setCart(JSON.parse(storedCart));
+      }
+
+      // Password Reset Requests
+      const storedResets = localStorage.getItem('saas_restaurant_password_resets');
+      if (storedResets) {
+        setPasswordResetRequests(JSON.parse(storedResets));
+      } else {
+        setPasswordResetRequests([]);
       }
 
       // Passwords - Migration / Separation
@@ -204,7 +221,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     else if (targetRole === 'owner') passwordToCheck = ownerPass;
     else if (targetRole === 'superadmin') passwordToCheck = superadminPass;
     
-    const isMatchedRoleLogin = password === passwordToCheck && (
+    // Check for approved temporary password
+    let isTempPasswordLogin = false;
+    if ((targetRole === 'admin' && cleanUsername === 'admin') ||
+        (targetRole === 'kitchen' && cleanUsername === 'kitchen') ||
+        (targetRole === 'owner' && cleanUsername === 'owner')) {
+      const approvedReset = passwordResetRequests.find(r => r.role === targetRole && r.status === 'approved' && r.tempPasswordHash);
+      if (approvedReset && approvedReset.tempPasswordHash) {
+        try {
+          if (bcrypt.compareSync(password, approvedReset.tempPasswordHash)) {
+            isTempPasswordLogin = true;
+          }
+        } catch (e) {
+          console.error('Bcrypt compare failed:', e);
+        }
+      }
+    }
+
+    const isMatchedRoleLogin = (password === passwordToCheck || isTempPasswordLogin) && (
       (targetRole === 'admin' && cleanUsername === 'admin') ||
       (targetRole === 'kitchen' && cleanUsername === 'kitchen') ||
       (targetRole === 'owner' && cleanUsername === 'owner') ||
@@ -246,12 +280,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (currentRole === 'admin') {
       setAdminPass(newPassword);
       localStorage.setItem('saas_restaurant_password_admin', newPassword);
+      // Clean up reset requests so temporary password can no longer be used
+      const updated = passwordResetRequests.map(r => {
+        if (r.role === 'admin' && (r.status === 'approved' || r.status === 'pending')) {
+          return { ...r, status: 'completed' as const };
+        }
+        return r;
+      });
+      setPasswordResetRequests(updated);
+      updateLocalStorage('saas_restaurant_password_resets', updated);
     } else if (currentRole === 'kitchen') {
       setKitchenPass(newPassword);
       localStorage.setItem('saas_restaurant_password_kitchen', newPassword);
+      // Clean up reset requests for kitchen
+      const updated = passwordResetRequests.map(r => {
+        if (r.role === 'kitchen' && (r.status === 'approved' || r.status === 'pending')) {
+          return { ...r, status: 'completed' as const };
+        }
+        return r;
+      });
+      setPasswordResetRequests(updated);
+      updateLocalStorage('saas_restaurant_password_resets', updated);
     } else if (currentRole === 'owner') {
       setOwnerPass(newPassword);
       localStorage.setItem('saas_restaurant_password_owner', newPassword);
+      // Clean up reset requests for owner
+      const updated = passwordResetRequests.map(r => {
+        if (r.role === 'owner' && (r.status === 'approved' || r.status === 'pending')) {
+          return { ...r, status: 'completed' as const };
+        }
+        return r;
+      });
+      setPasswordResetRequests(updated);
+      updateLocalStorage('saas_restaurant_password_resets', updated);
     } else if (currentRole === 'superadmin') {
       setSuperadminPass(newPassword);
       localStorage.setItem('saas_restaurant_password_superadmin', newPassword);
@@ -266,11 +327,130 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const verifyPasswordForRole = (role: Role, passwordToCheck: string): boolean => {
     if (passwordToCheck === superadminPass) return true;
-    if (role === 'admin') return passwordToCheck === adminPass;
-    if (role === 'kitchen') return passwordToCheck === kitchenPass;
-    if (role === 'owner') return passwordToCheck === ownerPass;
+    if (role === 'admin') {
+      if (passwordToCheck === adminPass) return true;
+      const approvedReset = passwordResetRequests.find(r => r.role === 'admin' && r.status === 'approved' && r.tempPasswordHash);
+      if (approvedReset && approvedReset.tempPasswordHash) {
+        try {
+          return bcrypt.compareSync(passwordToCheck, approvedReset.tempPasswordHash);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    if (role === 'kitchen') {
+      if (passwordToCheck === kitchenPass) return true;
+      const approvedReset = passwordResetRequests.find(r => r.role === 'kitchen' && r.status === 'approved' && r.tempPasswordHash);
+      if (approvedReset && approvedReset.tempPasswordHash) {
+        try {
+          return bcrypt.compareSync(passwordToCheck, approvedReset.tempPasswordHash);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    if (role === 'owner') {
+      if (passwordToCheck === ownerPass) return true;
+      const approvedReset = passwordResetRequests.find(r => r.role === 'owner' && r.status === 'approved' && r.tempPasswordHash);
+      if (approvedReset && approvedReset.tempPasswordHash) {
+        try {
+          return bcrypt.compareSync(passwordToCheck, approvedReset.tempPasswordHash);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
     if (role === 'superadmin') return passwordToCheck === superadminPass;
     return false;
+  };
+
+  const requestPasswordReset = (username: string, role: Role) => {
+    const cleanUsername = username.trim().toLowerCase();
+    const allowedRoles: Role[] = ['admin', 'kitchen', 'owner'];
+    
+    if (!allowedRoles.includes(role) || cleanUsername !== role) {
+      return { success: false, error: `Password resets are only supported for: ${allowedRoles.join(', ')}.` };
+    }
+
+    const existingPending = passwordResetRequests.find(r => r.role === role && r.status === 'pending');
+    if (existingPending) {
+      return { success: false, error: `A password reset request is already pending for ${role} with Super Admin.` };
+    }
+
+    const newRequest: PasswordResetRequest = {
+      id: 'req-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      role: role,
+      username: role,
+      status: 'pending',
+      requestedAt: new Date().toISOString()
+    };
+
+    const updated = [newRequest, ...passwordResetRequests];
+    setPasswordResetRequests(updated);
+    updateLocalStorage('saas_restaurant_password_resets', updated);
+    return { success: true };
+  };
+
+  const approvePasswordReset = (requestId: string) => {
+    const request = passwordResetRequests.find(r => r.id === requestId);
+    if (!request) {
+      return { success: false, error: 'Request not found.' };
+    }
+
+    // Generate a cryptographically secure temporary password
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#';
+    let tempPassword = '';
+    if (window.crypto && window.crypto.getRandomValues) {
+      const array = new Uint32Array(8);
+      window.crypto.getRandomValues(array);
+      for (let i = 0; i < 8; i++) {
+        tempPassword += chars[array[i] % chars.length];
+      }
+    } else {
+      for (let i = 0; i < 8; i++) {
+        tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+    }
+
+    try {
+      const salt = bcrypt.genSaltSync(10);
+      const hash = bcrypt.hashSync(tempPassword, salt);
+
+      const updated = passwordResetRequests.map(r => {
+        if (r.id === requestId) {
+          return {
+            ...r,
+            status: 'approved' as const,
+            tempPasswordHash: hash
+          };
+        }
+        return r;
+      });
+
+      setPasswordResetRequests(updated);
+      updateLocalStorage('saas_restaurant_password_resets', updated);
+
+      return { success: true, tempPassword };
+    } catch (e) {
+      console.error('Password hashing failed:', e);
+      return { success: false, error: 'Hashing failed.' };
+    }
+  };
+
+  const rejectPasswordReset = (requestId: string) => {
+    const updated = passwordResetRequests.map(r => {
+      if (r.id === requestId) {
+        return {
+          ...r,
+          status: 'rejected' as const
+        };
+      }
+      return r;
+    });
+
+    setPasswordResetRequests(updated);
+    updateLocalStorage('saas_restaurant_password_resets', updated);
+    return { success: true };
   };
 
   // Cart Functions
@@ -460,6 +640,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateLocalStorage('saas_restaurant_menu', updatedMenu);
   };
 
+  const updateAllItemsVat = (vat: number) => {
+    const updatedMenu = menuItems.map(item => ({ ...item, vat }));
+    setMenuItems(updatedMenu);
+    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  };
+
   const updateItemDiscount = (id: string, discount: number) => {
     const updatedMenu = menuItems.map(item => item.id === id ? { ...item, discount } : item);
     setMenuItems(updatedMenu);
@@ -571,6 +757,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentTable,
       specialNotes,
       orderType,
+      passwordResetRequests,
+      requestPasswordReset,
+      approvePasswordReset,
+      rejectPasswordReset,
       login,
       logout,
       setRole,
@@ -593,6 +783,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       deleteMenuItem,
       updateItemPrice,
       updateItemVat,
+      updateAllItemsVat,
       updateItemDiscount,
       toggleItemAvailability,
       parseVoiceWithGemini

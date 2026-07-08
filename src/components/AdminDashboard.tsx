@@ -200,11 +200,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
           </nav>
         </div>
 
-        {/* Logout */}
-        <div className="space-y-3 pt-8 border-t border-zinc-800/60 mt-8">
+        {/* Security & Logout */}
+        <div className="space-y-2 pt-8 border-t border-zinc-800/60 mt-8">
+          <button
+            onClick={() => {
+              setNewPasswordInput('');
+              setShowPasswordModal(true);
+            }}
+            className="w-full flex items-center justify-center gap-2 bg-zinc-950 text-zinc-400 hover:text-gold-400 py-2 rounded-lg cursor-pointer text-xs font-sans transition-colors border border-zinc-900 hover:border-gold-500/20"
+          >
+            <Key className="w-3.5 h-3.5" />
+            Change Password
+          </button>
+
           <button
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 bg-zinc-950 text-zinc-400 hover:text-red-400 py-2 rounded-lg cursor-pointer text-xs font-sans transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-zinc-950 text-zinc-400 hover:text-red-400 py-2 rounded-lg cursor-pointer text-xs font-sans transition-colors border border-zinc-900 hover:border-red-500/20"
           >
             Log Out Console
           </button>
