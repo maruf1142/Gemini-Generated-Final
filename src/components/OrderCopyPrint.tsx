@@ -5,16 +5,15 @@
 
 import React, { useRef } from 'react';
 import { Order } from '../types';
-import { Printer, Check, X, ShieldAlert } from 'lucide-react';
+import { Printer, Check, X } from 'lucide-react';
 
-interface InvoicePrintProps {
+interface OrderCopyPrintProps {
   order: Order;
   onClose: () => void;
-  onConfirmPrint: (printChoice: boolean) => void;
-  onVoidOrder?: (orderId: string) => void;
+  onConfirmPrint?: () => void;
 }
 
-export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onConfirmPrint, onVoidOrder }) => {
+export const OrderCopyPrint: React.FC<OrderCopyPrintProps> = ({ order, onClose, onConfirmPrint }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
 
   const calculateSubtotal = () => {
@@ -41,14 +40,13 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
   };
 
   const handlePrint = () => {
-    // Open print window with current content
     const printContent = printAreaRef.current?.innerHTML;
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
         <html>
           <head>
-            <title>Invoice - ${order.id}</title>
+            <title>Order Copy - ${order.id}</title>
             <style>
               body {
                 font-family: 'Courier New', Courier, monospace;
@@ -69,6 +67,13 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
               .header-subtitle { font-size: 10px; margin-bottom: 10px; }
               .summary-row { display: flex; justify-content: space-between; padding: 2px 0; }
               .footer { margin-top: 15px; font-size: 9px; line-height: 1.4; }
+              .not-invoice {
+                border: 1px solid #000;
+                padding: 4px;
+                margin: 8px 0;
+                font-size: 10px;
+                font-weight: bold;
+              }
               @media print {
                 @page { margin: 0; }
                 body { margin: 0; }
@@ -79,7 +84,7 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
             <div class="center">
               <div class="header-title">L'AURA MIDAS</div>
               <div class="header-subtitle">Gastronomy & Lounge<br>100 Gold Sovereign Way, London<br>Tel: +44 20 7946 0958</div>
-              <div class="bold">TAX INVOICE</div>
+              <div class="not-invoice">CUSTOMER'S ORDER COPY<br>(NOT A TAX INVOICE)</div>
             </div>
             
             <div class="divider"></div>
@@ -90,6 +95,8 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
               <span class="bold">Table No:</span> ${order.tableNumber}<br>
               <span class="bold">Type:</span> ${order.orderType.toUpperCase()}<br>
               ${order.specialNotes ? `<span class="bold">Notes:</span> ${order.specialNotes}<br>` : ''}
+              ${order.selfieUrl ? `<span class="bold">Selfie:</span> [X] Verified Base64<br>` : ''}
+              ${order.signature ? `<span class="bold">Signature:</span> [X] Customer Signed<br>` : ''}
             </div>
             
             <div class="divider"></div>
@@ -120,57 +127,58 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
             
             <div class="divider"></div>
             
-            <div class="summary-row">
-              <span>Subtotal:</span>
+            <div class="summary-row font-mono">
+              <span>Estimated Subtotal:</span>
               <span>${calculateSubtotal().toFixed(2)}</span>
             </div>
-            <div class="summary-row">
-              <span>Discounts:</span>
+            <div class="summary-row font-mono text-zinc-600">
+              <span>Estimated Discounts:</span>
               <span>-${calculateDiscounts().toFixed(2)}</span>
             </div>
-            <div class="summary-row">
-              <span>Vat (15% avg):</span>
+            <div class="summary-row font-mono">
+              <span>Estimated VAT (15%):</span>
               <span>+${calculateVat().toFixed(2)}</span>
             </div>
             <div class="divider" style="border-bottom-style: double;"></div>
-            <div class="summary-row bold" style="font-size: 14px;">
-              <span>TOTAL DUE:</span>
+            <div class="summary-row bold" style="font-size: 13px;">
+              <span>ESTIMATED TOTAL:</span>
               <span>${calculateTotal().toFixed(2)}</span>
             </div>
             
             <div class="divider"></div>
             
             <div class="center footer">
+              Please note: This is an order verification receipt. 
+              The final tax invoice will be generated upon payment.
               Thank you for dining with us!<br>
-              Service Charge not included.<br>
-              Powered by Midas SaaS Systems.<br>
-              Please Come Again.
+              Powered by Midas SaaS Systems.
             </div>
           </body>
         </html>
       `);
       printWindow.document.close();
     }
-    // Confirm printed yes
-    onConfirmPrint(true);
+    if (onConfirmPrint) {
+      onConfirmPrint();
+    }
   };
 
   return (
-    <div id="invoice-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div id="order-copy-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className="w-full max-w-md bg-zinc-900 border border-gold-500/30 rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         
         {/* Modal Header */}
         <div className="p-4 bg-zinc-950 border-b border-gold-500/10 flex items-center justify-between">
           <div className="flex items-center gap-2 text-gold-400">
             <Printer className="w-5 h-5" />
-            <h3 className="font-serif font-semibold text-lg tracking-wide">Generate Thermal Invoice</h3>
+            <h3 className="font-serif font-semibold text-lg tracking-wide">Customer's Order Copy</h3>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-200">
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-200 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Invoice Preview (Scrollable) */}
+        {/* Preview Scrollable */}
         <div className="p-6 overflow-y-auto flex-1 bg-zinc-950/50 flex justify-center">
           <div 
             ref={printAreaRef}
@@ -184,11 +192,14 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
                 Tel: +44 20 7946 0958
               </p>
               <div className="border-t border-dashed border-zinc-400 my-2"></div>
-              <p className="font-bold text-sm tracking-widest my-1">TAX INVOICE</p>
+              <div className="border border-black p-1 text-center font-bold text-[10px] my-1 uppercase">
+                Customer's Order Copy<br />
+                <span className="text-[8px] font-normal font-sans">(NOT A TAX INVOICE)</span>
+              </div>
               <div className="border-b border-dashed border-zinc-400 mb-2"></div>
             </div>
 
-            <div className="space-y-1 my-2">
+            <div className="space-y-1 my-2 text-[11px]">
               <div className="flex justify-between">
                 <span className="font-bold">Order ID:</span>
                 <span className="truncate max-w-[150px]">{order.id}</span>
@@ -199,7 +210,7 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
               </div>
               <div className="flex justify-between">
                 <span className="font-bold">Table Number:</span>
-                <span className="font-bold text-sm">Table {order.tableNumber}</span>
+                <span className="font-bold">Table {order.tableNumber}</span>
               </div>
               <div className="flex justify-between">
                 <span className="font-bold">Service Mode:</span>
@@ -246,65 +257,43 @@ export const InvoicePrint: React.FC<InvoicePrintProps> = ({ order, onClose, onCo
             {/* Calculations */}
             <div className="space-y-1 text-[11px]">
               <div className="flex justify-between">
-                <span>Subtotal:</span>
+                <span>Estimated Subtotal:</span>
                 <span>{calculateSubtotal().toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-zinc-600">
-                <span>Discounts:</span>
+                <span>Estimated Discounts:</span>
                 <span>-{calculateDiscounts().toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Vat Amount:</span>
+                <span>Estimated VAT (15%):</span>
                 <span>+{calculateVat().toFixed(2)}</span>
               </div>
               <div className="border-b border-double border-zinc-400 my-1"></div>
-              <div className="flex justify-between font-bold text-sm">
-                <span>TOTAL PAID:</span>
+              <div className="flex justify-between font-bold text-[12px]">
+                <span>ESTIMATED TOTAL:</span>
                 <span>{calculateTotal().toFixed(2)}</span>
               </div>
             </div>
 
             <div className="border-t border-dashed border-zinc-400 mt-3 pt-2 text-center text-[9px] text-zinc-500 leading-normal">
-              Thank you for dining with us!<br />
-              All prices include VAT.<br />
-              Powered by Midas SaaS Systems.<br />
-              Please Come Again.
+              This receipt verifies your order selections.<br />
+              Tax Invoice will be generated upon checkout.<br />
+              Thank you for dining with us!
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Actions */}
         <div className="p-4 bg-zinc-950 border-t border-gold-500/10 flex flex-col gap-2">
-          <div className="text-center text-xs text-zinc-400 mb-2">
-            Would you like to print this invoice and send the order to archive?
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={handlePrint}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-zinc-950 font-semibold py-2.5 px-4 rounded-lg hover:from-gold-400 hover:to-gold-500 shadow-lg cursor-pointer text-sm"
-            >
-              <Check className="w-4 h-4" />
-              Yes, Print Ticket
-            </button>
-            <button
-              onClick={() => onConfirmPrint(false)}
-              className="flex items-center justify-center gap-2 bg-zinc-800 text-zinc-200 hover:bg-zinc-700 py-2.5 px-4 rounded-lg cursor-pointer text-sm"
-            >
-              <X className="w-4 h-4" />
-              No, Skip Printing
-            </button>
-          </div>
-          {onVoidOrder && (
-            <button
-              type="button"
-              onClick={() => onVoidOrder(order.id)}
-              className="mt-1 w-full flex items-center justify-center gap-2 bg-red-650/10 hover:bg-red-650/20 text-red-400 border border-red-500/20 py-2 rounded-lg cursor-pointer transition-all text-xs"
-            >
-              <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
-              Void & Cancel Order instead
-            </button>
-          )}
+          <button
+            onClick={handlePrint}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-gold-500 to-gold-600 text-zinc-950 font-bold py-2.5 rounded-lg hover:from-gold-400 hover:to-gold-500 shadow-lg cursor-pointer text-sm"
+          >
+            <Printer className="w-4 h-4" />
+            Print Thermal Order Copy
+          </button>
         </div>
+
       </div>
     </div>
   );

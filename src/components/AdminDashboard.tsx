@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { showToast } from './Notification';
 import { InvoicePrint } from './InvoicePrint';
+import { OrderCopyPrint } from './OrderCopyPrint';
 import { getBangladeshDateString } from '../utils';
 
 interface AdminDashboardProps {
@@ -36,6 +37,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
   
   // Invoice states
   const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
+  const [activeOrderCopyOrder, setActiveOrderCopyOrder] = useState<Order | null>(null);
+  const [kitchenTab, setKitchenTab] = useState<'ready' | 'cooking'>('ready');
   
   // Password change states
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
@@ -383,20 +386,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
                     )}
 
                     {/* Action button bar */}
-                    <div className="flex gap-2 pt-2 border-t border-zinc-950">
+                    <div className="flex flex-col gap-2 pt-2 border-t border-zinc-950">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(order.id)}
+                          className="flex-1 bg-emerald-600/15 border border-emerald-500/30 hover:bg-emerald-600 hover:text-zinc-950 text-emerald-400 font-semibold py-1.5 rounded-lg cursor-pointer transition-all text-xs flex items-center justify-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          Approve Order
+                        </button>
+                        <button
+                          onClick={() => handleOpenReject(order.id)}
+                          className="flex-1 bg-red-600/10 border border-red-500/20 hover:bg-red-600 hover:text-zinc-950 text-red-400 py-1.5 rounded-lg cursor-pointer transition-all text-xs flex items-center justify-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Reject Order
+                        </button>
+                      </div>
                       <button
-                        onClick={() => handleApprove(order.id)}
-                        className="flex-1 bg-emerald-600/15 border border-emerald-500/30 hover:bg-emerald-600 hover:text-zinc-950 text-emerald-400 font-semibold py-1.5 rounded-lg cursor-pointer transition-all text-xs flex items-center justify-center gap-1"
+                        onClick={() => setActiveOrderCopyOrder(order)}
+                        className="w-full bg-zinc-850 hover:bg-zinc-800 text-zinc-300 border border-zinc-800/80 font-medium py-1.5 rounded-lg cursor-pointer transition-all text-[11px] flex items-center justify-center gap-1.5"
                       >
-                        <Check className="w-3.5 h-3.5" />
-                        Approve Order
-                      </button>
-                      <button
-                        onClick={() => handleOpenReject(order.id)}
-                        className="flex-1 bg-red-600/10 border border-red-500/20 hover:bg-red-600 hover:text-zinc-950 text-red-400 py-1.5 rounded-lg cursor-pointer transition-all text-xs flex items-center justify-center gap-1"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        Reject Order
+                        <Printer className="w-3.5 h-3.5 text-gold-400" />
+                        Print Order Copy (Thermal)
                       </button>
                     </div>
 
@@ -406,72 +418,163 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
             )}
           </div>
 
-          {/* Kitchen Ready Orders Awaiting Invoice Print */}
+          {/* Kitchen Ready & Cooking Orders Awaiting Invoice Print */}
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
               <h3 className="font-serif font-semibold text-zinc-200 tracking-wide text-base">
-                Ready Kitchen Orders ({readyOrders.length})
+                Kitchen Active Orders
               </h3>
-              <span className="text-[10px] text-zinc-500 font-mono">Invoice Generation</span>
+              <div className="flex bg-zinc-950 border border-zinc-850 rounded-lg p-0.5">
+                <button
+                  onClick={() => setKitchenTab('ready')}
+                  className={`px-3 py-1 text-[10px] font-mono rounded-md font-semibold transition-all cursor-pointer ${
+                    kitchenTab === 'ready'
+                      ? 'bg-gold-500/15 text-gold-400 border border-gold-500/30'
+                      : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                  }`}
+                >
+                  Ready ({readyOrders.length})
+                </button>
+                <button
+                  onClick={() => setKitchenTab('cooking')}
+                  className={`px-3 py-1 text-[10px] font-mono rounded-md font-semibold transition-all cursor-pointer ${
+                    kitchenTab === 'cooking'
+                      ? 'bg-gold-500/15 text-gold-400 border border-gold-500/30'
+                      : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                  }`}
+                >
+                  Cooking ({activeCookingOrders.length})
+                </button>
+              </div>
             </div>
 
-            {readyOrders.length === 0 ? (
-              <div className="text-center py-12 bg-zinc-900/10 border border-dashed border-zinc-800 rounded-xl">
-                <Printer className="w-8 h-8 text-zinc-800 mx-auto mb-2" />
-                <p className="text-xs text-zinc-500">No ready orders awaiting invoicing.</p>
-                <p className="text-[10px] text-zinc-600 mt-0.5">Staff will see cooking states update live.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {readyOrders.map(order => (
-                  <div key={order.id} className="glass-card rounded-xl p-4 border-gold-500/15 space-y-3 relative shadow-md">
-                    
-                    {/* Header */}
-                    <div className="flex justify-between items-start border-b border-zinc-950 pb-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-gold-400 font-mono">{order.id}</span>
-                          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-semibold">
-                            READY (TABLE {order.tableNumber})
-                          </span>
+            {kitchenTab === 'ready' && (
+              readyOrders.length === 0 ? (
+                <div className="text-center py-12 bg-zinc-900/10 border border-dashed border-zinc-800 rounded-xl">
+                  <Printer className="w-8 h-8 text-zinc-800 mx-auto mb-2" />
+                  <p className="text-xs text-zinc-500">No ready orders awaiting invoicing.</p>
+                  <p className="text-[10px] text-zinc-600 mt-0.5">Staff will see cooking states update live.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {readyOrders.map(order => (
+                    <div key={order.id} className="glass-card rounded-xl p-4 border-gold-500/15 space-y-3 relative shadow-md">
+                      
+                      {/* Header */}
+                      <div className="flex justify-between items-start border-b border-zinc-950 pb-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-gold-400 font-mono">{order.id}</span>
+                            <span className="text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-mono font-semibold">
+                              READY (TABLE {order.tableNumber})
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-zinc-500 mt-0.5 font-mono">Kitchen finished at {order.createdAtTime}</p>
                         </div>
-                        <p className="text-[9px] text-zinc-500 mt-0.5 font-mono">Kitchen finished at {order.createdAtTime}</p>
+
+                        {/* Cancel/Reject option even at Ready stage */}
+                        <button
+                          onClick={() => handleOpenReject(order.id)}
+                          className="text-zinc-500 hover:text-red-400 p-1 transition-colors text-xs cursor-pointer font-mono"
+                          title="Reject/Void Order"
+                        >
+                          Void Order
+                        </button>
                       </div>
 
-                      {/* Cancel/Reject option even at Ready stage */}
-                      <button
-                        onClick={() => handleOpenReject(order.id)}
-                        className="text-zinc-500 hover:text-red-400 p-1 transition-colors text-xs cursor-pointer font-mono"
-                        title="Reject/Void Order"
-                      >
-                        Void Order
-                      </button>
-                    </div>
+                      {/* Info */}
+                      <div className="space-y-1.5 text-xs">
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-zinc-300">
+                            <span>{item.name}</span>
+                            <span className="font-mono text-gold-400 font-bold">x{item.quantity}</span>
+                          </div>
+                        ))}
+                      </div>
 
-                    {/* Info */}
-                    <div className="space-y-1.5 text-xs">
-                      {order.items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-zinc-300">
-                          <span>{item.name}</span>
-                          <span className="font-mono text-gold-400 font-bold">x{item.quantity}</span>
+                      {/* Print invoice & copy button triggers */}
+                      <div className="pt-2 border-t border-zinc-950 flex flex-col gap-2">
+                        <button
+                          onClick={() => setActiveInvoiceOrder(order)}
+                          className="w-full bg-gradient-to-r from-gold-500 to-gold-600 text-zinc-950 font-bold py-2 rounded-lg cursor-pointer shadow-lg hover:from-gold-400 hover:to-gold-500 text-xs flex items-center justify-center gap-1.5"
+                        >
+                          <Printer className="w-4 h-4 text-zinc-950" />
+                          Print Invoice & Archive
+                        </button>
+                        <button
+                          onClick={() => setActiveOrderCopyOrder(order)}
+                          className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-750 font-medium py-1.5 rounded-lg cursor-pointer transition-all text-xs flex items-center justify-center gap-1.5"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-gold-400" />
+                          Print Order Copy (Thermal)
+                        </button>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {kitchenTab === 'cooking' && (
+              activeCookingOrders.length === 0 ? (
+                <div className="text-center py-12 bg-zinc-900/10 border border-dashed border-zinc-800 rounded-xl">
+                  <ShoppingBag className="w-8 h-8 text-zinc-800 mx-auto mb-2 animate-pulse" />
+                  <p className="text-xs text-zinc-500">No orders currently cooking.</p>
+                  <p className="text-[10px] text-zinc-600 mt-0.5">Approved orders automatically transition here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {activeCookingOrders.map(order => (
+                    <div key={order.id} className="glass-card rounded-xl p-4 border-gold-500/10 space-y-3 relative shadow-md">
+                      
+                      {/* Header */}
+                      <div className="flex justify-between items-start border-b border-zinc-950 pb-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-gold-400 font-mono">{order.id}</span>
+                            <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-mono font-semibold">
+                              COOKING (TABLE {order.tableNumber})
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-zinc-500 mt-0.5 font-mono">Dispatched at {order.createdAtTime}</p>
                         </div>
-                      ))}
-                    </div>
 
-                    {/* Print invoice button trigger */}
-                    <div className="pt-2 border-t border-zinc-950">
-                      <button
-                        onClick={() => setActiveInvoiceOrder(order)}
-                        className="w-full bg-gradient-to-r from-gold-500 to-gold-600 text-zinc-950 font-bold py-2 rounded-lg cursor-pointer shadow-lg hover:from-gold-400 hover:to-gold-500 text-xs flex items-center justify-center gap-1.5"
-                      >
-                        <Printer className="w-4 h-4 text-zinc-950" />
-                        Print Invoice & Archive
-                      </button>
-                    </div>
+                        {/* Cancel/Reject option */}
+                        <button
+                          onClick={() => handleOpenReject(order.id)}
+                          className="text-zinc-500 hover:text-red-400 p-1 transition-colors text-xs cursor-pointer font-mono"
+                          title="Reject/Void Order"
+                        >
+                          Void Order
+                        </button>
+                      </div>
 
-                  </div>
-                ))}
-              </div>
+                      {/* Info */}
+                      <div className="space-y-1.5 text-xs">
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-zinc-300">
+                            <span>{item.name}</span>
+                            <span className="font-mono text-gold-400 font-bold">x{item.quantity}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Print copy button trigger */}
+                      <div className="pt-2 border-t border-zinc-950">
+                        <button
+                          onClick={() => setActiveOrderCopyOrder(order)}
+                          className="w-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-750 font-medium py-1.5 rounded-lg cursor-pointer transition-all text-xs flex items-center justify-center gap-1.5"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-gold-400" />
+                          Print Order Copy (Thermal)
+                        </button>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
 
@@ -511,8 +614,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
                     <th className="p-3 text-center">Table</th>
                     <th className="p-3">Service</th>
                     <th className="p-3">Items Purchased</th>
-                    <th className="p-3 text-right">Invoiced</th>
+                    <th className="p-3 text-center">Invoiced</th>
                     <th className="p-3 text-right">Total Price</th>
+                    <th className="p-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -532,7 +636,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
                         <td className="p-3 max-w-xs truncate font-medium">
                           {order.items.map(item => `${item.name} (${item.quantity})`).join(', ')}
                         </td>
-                        <td className="p-3 text-right font-mono">
+                        <td className="p-3 text-center font-mono">
                           {order.invoicePrinted ? (
                             <span className="text-emerald-400 text-[10px] font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Printed</span>
                           ) : (
@@ -540,6 +644,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
                           )}
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-zinc-100">{orderTotalSum.toFixed(2)}</td>
+                        <td className="p-3 text-center">
+                          <button
+                            onClick={() => setActiveOrderCopyOrder(order)}
+                            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-gold-400 p-1.5 rounded transition-all cursor-pointer inline-flex items-center justify-center"
+                            title="Print Customer's Order Copy"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -557,6 +670,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
           order={activeInvoiceOrder}
           onClose={() => setActiveInvoiceOrder(null)}
           onConfirmPrint={handleConfirmInvoicePrint}
+          onVoidOrder={(orderId) => {
+            setActiveInvoiceOrder(null);
+            handleOpenReject(orderId);
+          }}
+        />
+      )}
+
+      {/* Customer Order Copy (Thermal) Modal */}
+      {activeOrderCopyOrder && (
+        <OrderCopyPrint 
+          order={activeOrderCopyOrder}
+          onClose={() => setActiveOrderCopyOrder(null)}
+          onConfirmPrint={() => {
+            showToast('Order Copy printed successfully.', 'success');
+            setActiveOrderCopyOrder(null);
+          }}
         />
       )}
 
