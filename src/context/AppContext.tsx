@@ -263,13 +263,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // 2. Real-time Subscription to Menu Items in Firestore
     const unsubscribeMenu = onSnapshot(collection(db, 'menu_items'), async (snapshot) => {
       if (snapshot.empty) {
-        // Seed default menu to Firestore if empty
+        // Seed default menu to Firestore if empty and has not been seeded before
         try {
-          for (const item of DEFAULT_MENU) {
-            await setDoc(doc(db, 'menu_items', item.id), cleanUndefined(item));
+          const metaDoc = await getDoc(doc(db, 'metadata', 'system'));
+          if (!metaDoc.exists() || !metaDoc.data()?.menuSeeded) {
+            for (const item of DEFAULT_MENU) {
+              await setDoc(doc(db, 'menu_items', item.id), cleanUndefined(item));
+            }
+            await setDoc(doc(db, 'metadata', 'system'), { menuSeeded: true });
+          } else {
+            setMenuItems([]);
+            localStorage.setItem('saas_restaurant_menu', JSON.stringify([]));
           }
         } catch (err) {
-          console.error('Error seeding menu to Firestore:', err);
+          console.error('Error checking metadata or seeding menu:', err);
+          setMenuItems([]);
+          localStorage.setItem('saas_restaurant_menu', JSON.stringify([]));
         }
       } else {
         const items: MenuItem[] = [];

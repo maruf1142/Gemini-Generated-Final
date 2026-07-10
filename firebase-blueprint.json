@@ -66,9 +66,22 @@
         "superadminPass": { "type": "string" }
       },
       "required": ["adminPass", "kitchenPass", "ownerPass", "superadminPass"]
+    },
+    "SystemMetadata": {
+      "title": "SystemMetadata",
+      "description": "System metadata tracking initialization state.",
+      "type": "object",
+      "properties": {
+        "menuSeeded": { "type": "boolean" }
+      },
+      "required": ["menuSeeded"]
     }
   },
   "firestore": {
+    "metadata": {
+      "schema": "SystemMetadata",
+      "description": "Metadata for system initialization."
+    },
     "menu_items": {
       "schema": "MenuItem",
       "description": "Collection of menu items."
