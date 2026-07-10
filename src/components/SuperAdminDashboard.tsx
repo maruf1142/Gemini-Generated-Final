@@ -6,9 +6,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItem, Role } from '../types';
+import ExcelJS from 'exceljs';
 import { 
   Plus, Edit2, Trash2, Key, Sparkles, Check, X, ShieldAlert, 
-  Eye, Image, Sliders, DollarSign, ArrowLeft, ClipboardList, ChevronRight, Percent 
+  Eye, Image, Sliders, DollarSign, ArrowLeft, ClipboardList, ChevronRight, Percent,
+  UploadCloud, FileSpreadsheet
 } from 'lucide-react';
 import { showToast } from './Notification';
 
@@ -84,6 +86,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
   const [quickEditConfig, setQuickEditConfig] = useState<QuickEditConfig | null>(null);
   const [quickEditValue, setQuickEditValue] = useState<string>('');
   const [quickEditError, setQuickEditError] = useState<string | null>(null);
+
+  // Excel bulk upload / mapping states
+  const [parsedExcelItems, setParsedExcelItems] = useState<any[]>([]);
+  const [excelFileName, setExcelFileName] = useState<string>('');
+  const [isImporting, setIsImporting] = useState<boolean>(false);
 
   // Authentication Guard
   if (currentRole !== 'superadmin') {
@@ -183,6 +190,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
     setCategory('Entrées');
     setImageUrl(LUXURY_PRESET_IMAGES[0].url);
     setCustomImageToggle(false);
+    setParsedExcelItems([]);
+    setExcelFileName('');
     setShowItemModal(true);
   };
 
@@ -197,7 +206,182 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
     setCategory(item.category);
     setImageUrl(item.image);
     setCustomImageToggle(!LUXURY_PRESET_IMAGES.some(preset => preset.url === item.image));
+    setParsedExcelItems([]);
+    setExcelFileName('');
     setShowItemModal(true);
+  };
+
+  // Process Excel spreadsheet upload
+  const handleExcelFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setExcelFileName(file.name);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
+      
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        showToast('The Excel file is empty.', 'error');
+        return;
+      }
+
+      // Find column indices by scanning row 1
+      let headerRow: string[] = [];
+      const firstRow = worksheet.getRow(1);
+      firstRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+        headerRow[colNumber] = cell.text ? cell.text.trim().toLowerCase() : '';
+      });
+
+      // Target headers: FoodID, FoodName, Category, Description, Price, Vat, Discount, URL
+      let colFoodID = -1;
+      let colFoodName = -1;
+      let colCategory = -1;
+      let colDescription = -1;
+      let colPrice = -1;
+      let colVat = -1;
+      let colDiscount = -1;
+      let colURL = -1;
+
+      for (let col = 1; col < headerRow.length; col++) {
+        const h = headerRow[col];
+        if (!h) continue;
+        const clean = h.replace(/[\s_%-]/g, '');
+        if (clean === 'foodid' || clean === 'sn' || clean === 'serialnumber' || clean === 'id') {
+          colFoodID = col;
+        } else if (clean === 'foodname' || clean === 'dishname' || clean === 'name') {
+          colFoodName = col;
+        } else if (clean === 'category') {
+          colCategory = col;
+        } else if (clean === 'description' || clean === 'recipe' || clean === 'desc') {
+          colDescription = col;
+        } else if (clean === 'price') {
+          colPrice = col;
+        } else if (clean === 'vat' || clean === 'vatrate' || clean === 'tax') {
+          colVat = col;
+        } else if (clean === 'discount' || clean === 'disc') {
+          colDiscount = col;
+        } else if (clean === 'url' || clean === 'image' || clean === 'imageurl') {
+          colURL = col;
+        }
+      }
+
+      // If headers are missing, try a direct positional fallback (1 to 8):
+      if (colFoodName === -1) {
+        colFoodID = 1;
+        colFoodName = 2;
+        colCategory = 3;
+        colDescription = 4;
+        colPrice = 5;
+        colVat = 6;
+        colDiscount = 7;
+        colURL = 8;
+      }
+
+      const items: any[] = [];
+      worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip headers
+
+        const getCellStr = (colIdx: number) => {
+          if (colIdx === -1) return '';
+          const val = row.getCell(colIdx).value;
+          if (val === null || val === undefined) return '';
+          if (typeof val === 'object' && 'text' in val) {
+            return String(val.text).trim();
+          }
+          if (typeof val === 'object' && 'result' in val) {
+            return String(val.result).trim();
+          }
+          return String(val).trim();
+        };
+
+        const getCellNum = (colIdx: number, fallback: number) => {
+          if (colIdx === -1) return fallback;
+          const val = row.getCell(colIdx).value;
+          if (val === null || val === undefined) return fallback;
+          let numStr = '';
+          if (typeof val === 'object' && 'result' in val) {
+            numStr = String(val.result);
+          } else {
+            numStr = String(val);
+          }
+          const parsed = parseFloat(numStr.replace(/[^0-9.-]/g, ''));
+          return isNaN(parsed) ? fallback : parsed;
+        };
+
+        const nameVal = getCellStr(colFoodName);
+        if (!nameVal) return;
+
+        items.push({
+          serialNumber: getCellStr(colFoodID),
+          name: nameVal,
+          category: getCellStr(colCategory) || 'Entrées',
+          description: getCellStr(colDescription) || 'Meticulously crafted premium culinary specialty.',
+          price: getCellNum(colPrice, 15),
+          vat: getCellNum(colVat, 13),
+          discount: getCellNum(colDiscount, 0),
+          image: getCellStr(colURL) || LUXURY_PRESET_IMAGES[0].url,
+          available: true
+        });
+      });
+
+      if (items.length === 0) {
+        showToast('No valid food records found in the uploaded Excel file.', 'error');
+        return;
+      }
+
+      setParsedExcelItems(items);
+      showToast(`Excel file parsed: found ${items.length} delicacy items!`, 'success');
+
+      // Autofill form fields with the first item's details for easy viewing/editing
+      const first = items[0];
+      setSerialNumber(first.serialNumber || '');
+      setName(first.name);
+      setCategory(first.category);
+      setDescription(first.description);
+      setPrice(first.price);
+      setVat(first.vat);
+      setDiscount(first.discount);
+      setImageUrl(first.image);
+
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to parse Excel file. Please upload a valid .xlsx file.', 'error');
+    }
+  };
+
+  // Perform bulk import of parsed excel items
+  const handleBulkImport = async () => {
+    if (parsedExcelItems.length === 0) return;
+    setIsImporting(true);
+    try {
+      let count = 0;
+      for (const item of parsedExcelItems) {
+        await addMenuItem({
+          serialNumber: item.serialNumber,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          vat: item.vat,
+          discount: item.discount,
+          category: item.category,
+          image: item.image,
+          available: true
+        });
+        count++;
+      }
+      showToast(`Successfully imported all ${count} delicacies to the menu!`, 'success');
+      setParsedExcelItems([]);
+      setExcelFileName('');
+      setShowItemModal(false);
+    } catch (err) {
+      console.error(err);
+      showToast('Error during bulk importing.', 'error');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -764,6 +948,96 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
               <button onClick={() => setShowItemModal(false)} className="text-zinc-500 hover:text-zinc-300">
                 <X className="w-5 h-5" />
               </button>
+            </div>
+
+            {/* Excel Integration Suite */}
+            <div className="bg-zinc-950/60 border border-emerald-500/30 p-4 rounded-xl space-y-4 mb-5 shadow-inner">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-zinc-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                  <div>
+                    <span className="text-sm font-serif font-bold text-emerald-400 block">Excel & Sheets Smart Integration</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">Upload Excel files or paste clipboard rows directly</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                    SaaS Engine Active
+                  </span>
+                </div>
+              </div>
+
+              {/* Upload Dropzone */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* File Upload Box */}
+                <div className="relative border border-dashed border-emerald-500/30 hover:border-emerald-500/60 bg-zinc-900/40 hover:bg-zinc-900/60 transition-all rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer group">
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleExcelFileUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <UploadCloud className="w-8 h-8 text-emerald-400/70 group-hover:text-emerald-400 group-hover:scale-110 transition-all duration-300 mb-2" />
+                  <p className="text-xs font-sans font-semibold text-zinc-300">
+                    {excelFileName ? (
+                      <span className="text-emerald-400 font-mono break-all">{excelFileName}</span>
+                    ) : (
+                      "Click or Drag & Drop Excel (.xlsx) file"
+                    )}
+                  </p>
+                  <p className="text-[10px] text-zinc-500 font-mono mt-1">
+                    Headers: FoodID, FoodName, Category, Description, Price, Vat, Discount, URL
+                  </p>
+                </div>
+
+                {/* Clipboard Paste Box */}
+                <div className="flex flex-col justify-between space-y-2 bg-zinc-900/20 border border-zinc-850 p-4 rounded-xl">
+                  <span className="text-xs text-zinc-400 font-mono font-medium">📋 Instant Paste Row</span>
+                  <p className="text-[10px] text-zinc-500 leading-normal">
+                    Copy a row from any Excel/Google Sheet and click to paste in the input box below. The spreadsheet editor below will automatically parse and fill all cells!
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Click here & Paste (Ctrl+V) copied spreadsheet row..."
+                    onPaste={(e) => {
+                      const txt = e.clipboardData.getData('text');
+                      handleExcelString(txt);
+                    }}
+                    className="w-full bg-zinc-950/80 border border-emerald-500/20 rounded-lg py-2 px-3 text-xs text-zinc-300 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-mono text-center cursor-pointer hover:bg-zinc-950"
+                  />
+                </div>
+              </div>
+
+              {/* Bulk Import Info & Actions */}
+              {parsedExcelItems.length > 0 && (
+                <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 animate-fade-in">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs font-bold text-zinc-200">
+                        Spreadsheet Loaded: <span className="text-emerald-400 font-mono font-bold">{parsedExcelItems.length} Delicacies</span>
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-zinc-400 mt-0.5">
+                      The form below has been auto-filled with row 1's details. You can publish one-by-one or import all!
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isImporting}
+                    onClick={handleBulkImport}
+                    className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 text-zinc-950 hover:from-emerald-400 hover:to-teal-500 disabled:from-zinc-800 disabled:to-zinc-800 disabled:text-zinc-500 font-bold px-4 py-2 rounded-lg text-xs uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    {isImporting ? (
+                      <span className="animate-spin h-3.5 w-3.5 border-2 border-zinc-950 border-t-transparent rounded-full" />
+                    ) : (
+                      "🚀"
+                    )}
+                    {isImporting ? "Bulk Importing..." : `Bulk Import All ${parsedExcelItems.length} Items`}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Excel spreadsheet interactive row */}

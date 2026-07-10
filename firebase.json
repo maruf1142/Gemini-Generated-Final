@@ -1,5 +1,8 @@
 {
-  "firestore": {
-    "rules": "firestore.rules"
-  }
+  "firestore": [
+    {
+      "database": "ai-studio-restaurantmanage-1e2bc98e-f538-4759-8356-8a42b481a86d",
+      "rules": "firestore.rules"
+    }
+  ]
 }
