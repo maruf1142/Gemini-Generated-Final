@@ -109,5 +109,31 @@ export const DEFAULT_MENU: MenuItem[] = [
     image: 'https://images.unsplash.com/photo-1536935338788-846bb9981813?w=600&auto=format&fit=crop&q=80',
     available: true,
     createdAt: new Date().toISOString()
+  },
+  {
+    id: 'm9',
+    serialNumber: 'F001',
+    name: 'Garlic bread',
+    description: 'Toasted artisan bread slices topped with rich garlic butter, roasted garlic cloves, and fresh parsley.',
+    category: 'Appetizers',
+    price: 12,
+    vat: 10,
+    discount: 0,
+    image: 'https://images.unsplash.com/photo-1573140247632-f8fd74997d5c?w=600&auto=format&fit=crop&q=80',
+    available: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'm10',
+    serialNumber: 'F002',
+    name: 'Caesar salad',
+    description: 'Crisp romaine lettuce, house-made sourdough croutons, shaved Parmigiano-Reggiano, and rich Caesar dressing.',
+    category: 'Appetizers',
+    price: 18,
+    vat: 10,
+    discount: 0,
+    image: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=600&auto=format&fit=crop&q=80',
+    available: true,
+    createdAt: new Date().toISOString()
   }
 ];
