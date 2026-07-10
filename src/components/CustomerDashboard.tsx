@@ -11,6 +11,7 @@ import {
   Trash2, Sparkles, Check, ChevronRight, Eye, RefreshCw, X, Clock, Utensils, Phone 
 } from 'lucide-react';
 import { showToast } from './Notification';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface CustomerDashboardProps {
   onBackToLanding: () => void;
@@ -38,6 +39,8 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
   const [showTableModal, setShowTableModal] = useState<boolean>(false);
   const [showNotesModal, setShowNotesModal] = useState<boolean>(false);
   const [isNotesForCheckout, setIsNotesForCheckout] = useState<boolean>(false);
+  const [showMenuSummary, setShowMenuSummary] = useState<boolean>(false);
+  const [summarySearchQuery, setSummarySearchQuery] = useState<string>('');
   
   // Voice Order States
   const [showVoiceModal, setShowVoiceModal] = useState<boolean>(false);
@@ -380,6 +383,26 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
     return calculateCartSubtotal() - calculateCartTotalDiscount() + calculateCartTotalVat();
   };
 
+  // Group menu items by category for the Brief Menu Summary
+  const getGroupedSummaryItems = () => {
+    const query = summarySearchQuery.toLowerCase().trim();
+    const filtered = menuItems.filter(item => 
+      item.name.toLowerCase().includes(query) || 
+      item.category.toLowerCase().includes(query) ||
+      (item.serialNumber && item.serialNumber.toLowerCase().includes(query))
+    );
+
+    // Group by category
+    const grouped: { [category: string]: MenuItem[] } = {};
+    filtered.forEach(item => {
+      if (!grouped[item.category]) {
+        grouped[item.category] = [];
+      }
+      grouped[item.category].push(item);
+    });
+    return grouped;
+  };
+
   // Filter menu items
   const filteredMenuItems = activeCategory === 'All' 
     ? menuItems 
@@ -583,6 +606,16 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
           </div>
 
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => {
+                setSummarySearchQuery('');
+                setShowMenuSummary(true);
+              }}
+              className="inline-flex items-center gap-2 bg-zinc-900/80 border border-zinc-800/80 hover:border-gold-500/40 text-zinc-300 hover:text-gold-400 font-sans text-xs py-2 px-4 rounded-full shadow-lg transition-all cursor-pointer"
+            >
+              <Eye className="w-4 h-4 text-gold-400" />
+              Brief Menu Summary
+            </button>
             <button
               onClick={() => {
                 setVoiceTranscript('');
@@ -1170,6 +1203,202 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
           </div>
         </div>
       )}
+
+      {/* Brief Menu Summary Modal */}
+      {showMenuSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+          <div className="glass-panel w-full max-w-4xl p-6 rounded-2xl shadow-2xl border border-gold-500/30 flex flex-col max-h-[85vh] bg-zinc-950">
+            
+            {/* Modal Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
+              <div>
+                <h3 className="font-serif text-2xl font-semibold text-gold-400 tracking-wide flex items-center gap-2">
+                  <Utensils className="w-5 h-5 text-gold-400" />
+                  Gourmet Menu Summary
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">Quickly view all items, prices, and add directly to your bag.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search dishes or categories..."
+                    value={summarySearchQuery}
+                    onChange={(e) => setSummarySearchQuery(e.target.value)}
+                    className="w-full sm:w-64 bg-zinc-900 border border-zinc-800 rounded-xl py-2 pl-3 pr-8 text-xs text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-gold-500/30"
+                  />
+                  {summarySearchQuery && (
+                    <button
+                      onClick={() => setSummarySearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowMenuSummary(false)}
+                  className="text-zinc-500 hover:text-zinc-300 p-1 rounded-lg hover:bg-zinc-900"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Scrollable Content */}
+            <div className="flex-1 overflow-y-auto py-4 pr-1 space-y-6">
+              {Object.keys(getGroupedSummaryItems()).length === 0 ? (
+                <div className="text-center py-12 text-zinc-600 text-sm font-sans">
+                  No delicacies match your search criteria.
+                </div>
+              ) : (
+                Object.entries(getGroupedSummaryItems()).map(([category, items]) => (
+                  <div key={category} className="space-y-2.5">
+                    {/* Category Label */}
+                    <div className="flex items-center gap-2 border-b border-zinc-900 pb-1.5">
+                      <span className="text-xs font-serif font-bold text-gold-400 tracking-wider uppercase">
+                        {category}
+                      </span>
+                      <span className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-500 px-2 py-0.5 rounded font-mono">
+                        {items.length} {items.length === 1 ? 'item' : 'items'}
+                      </span>
+                    </div>
+
+                    {/* Table of items inside this Category */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="border-b border-zinc-900 text-zinc-500 font-mono text-[10px] uppercase tracking-wider">
+                            <th className="py-2 px-1">ID</th>
+                            <th className="py-2 px-3">Name & Description</th>
+                            <th className="py-2 px-3 text-center">Status</th>
+                            <th className="py-2 px-3 text-right">Price</th>
+                            <th className="py-2 px-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-900">
+                          {items.map(item => {
+                            const hasDiscount = item.discount > 0;
+                            const finalPrice = hasDiscount ? (item.price * (1 - item.discount / 100)) : item.price;
+                            return (
+                              <tr key={item.id} className="hover:bg-zinc-900/30 transition-colors group">
+                                <td className="py-3 px-1 font-mono text-[10px] text-zinc-500">
+                                  {item.serialNumber || '—'}
+                                </td>
+                                <td className="py-3 px-3">
+                                  <div className="font-semibold text-zinc-100 group-hover:text-gold-400 transition-colors">
+                                    {item.name}
+                                  </div>
+                                  <div className="text-zinc-500 text-[11px] font-sans line-clamp-1 max-w-sm mt-0.5">
+                                    {item.description}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono leading-none ${
+                                    item.available 
+                                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${item.available ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                    {item.available ? 'Available' : 'Sold Out'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-right font-mono">
+                                  {hasDiscount ? (
+                                    <div className="flex flex-col items-end">
+                                      <span className="text-[10px] text-zinc-500 line-through">
+                                        {item.price.toFixed(2)}
+                                      </span>
+                                      <span className="text-zinc-200 font-bold text-gold-400">
+                                        {finalPrice.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-zinc-200 font-bold">
+                                      {item.price.toFixed(2)}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-3 text-right">
+                                  {item.available ? (
+                                    <button
+                                      onClick={() => {
+                                        addToCart(item, 1);
+                                        showToast(`Added ${item.name} to bag!`, 'success');
+                                      }}
+                                      className="inline-flex items-center gap-1 bg-gold-500 hover:bg-gold-400 text-zinc-950 font-sans font-bold py-1 px-2.5 rounded-lg text-[11px] transition-all cursor-pointer shadow-md shadow-gold-500/5 active:scale-95"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                      Add
+                                    </button>
+                                  ) : (
+                                    <span className="text-zinc-600 font-mono text-[10px]">
+                                      Unavailable
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-zinc-900 pt-4 flex items-center justify-between">
+              <span className="text-[11px] text-zinc-500 font-mono">
+                Total Varieties: {menuItems.length} delicacies
+              </span>
+              <button
+                onClick={() => setShowMenuSummary(false)}
+                className="px-5 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 rounded-xl cursor-pointer text-xs"
+              >
+                Close Summary
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Floating Bubble Brief Menu Summary Fetcher (visible when menu is unlocked) */}
+      <AnimatePresence>
+        {!showTableModal && currentTable.trim() !== '' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+            className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-40"
+          >
+            <button
+              onClick={() => {
+                setSummarySearchQuery('');
+                setShowMenuSummary(true);
+              }}
+              className="group relative flex items-center gap-3 bg-gradient-to-r from-amber-500 via-gold-500 to-amber-600 hover:from-amber-400 hover:via-amber-500 text-zinc-950 font-sans font-bold py-4 px-6 md:py-4.5 md:px-8 rounded-full shadow-2xl shadow-gold-500/40 border-2 border-gold-300/40 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer text-xs md:text-sm"
+              title="Brief Menu Summary"
+            >
+              {/* Outer pulsing shadow ring */}
+              <span className="absolute -inset-1 rounded-full bg-gold-400/20 blur-sm opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300 pointer-events-none" />
+              
+              <Eye className="relative w-5 h-5 text-zinc-950 group-hover:rotate-12 transition-transform duration-300 stroke-[2.5]" />
+              
+              <span className="relative tracking-wider font-extrabold uppercase text-[11px] md:text-xs">
+                Brief Menu Summary
+              </span>
+
+              <span className="relative bg-zinc-950 text-gold-400 text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border border-gold-500/30">
+                {menuItems.length}
+              </span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -8,6 +8,19 @@ import { MenuItem, Order, CartItem, Role, OrderStatus, OrderType, PasswordResetR
 import { DEFAULT_MENU } from '../data/defaultMenu';
 import { getBangladeshDateString, getBangladeshTimeString } from '../utils';
 import bcrypt from 'bcryptjs';
+import { db } from '../lib/firebase';
+import { 
+  collection, 
+  doc, 
+  onSnapshot, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDoc,
+  getDocs,
+  query,
+  orderBy
+} from 'firebase/firestore';
 
 interface AppContextType {
   menuItems: MenuItem[];
@@ -83,7 +96,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [specialNotes, setSpecialNotesState] = useState<string>('');
   const [orderType, setOrderTypeState] = useState<OrderType>('dine-in');
 
-  // Load initial data
+  // Load initial data from localStorage for fast initial render
   const loadData = () => {
     try {
       // Menu items
@@ -180,16 +193,108 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   useEffect(() => {
+    // 1. Initial fast load from local cache
     loadData();
 
-    // Listen to storage changes from other tabs/iframes
+    // 2. Real-time Subscription to Menu Items in Firestore
+    const unsubscribeMenu = onSnapshot(collection(db, 'menu_items'), async (snapshot) => {
+      if (snapshot.empty) {
+        // Seed default menu to Firestore if empty
+        try {
+          for (const item of DEFAULT_MENU) {
+            await setDoc(doc(db, 'menu_items', item.id), item);
+          }
+        } catch (err) {
+          console.error('Error seeding menu to Firestore:', err);
+        }
+      } else {
+        const items: MenuItem[] = [];
+        snapshot.forEach(docSnap => {
+          items.push(docSnap.data() as MenuItem);
+        });
+        // Sort items stably by serialNumber or ID
+        items.sort((a, b) => {
+          const numA = parseInt(a.serialNumber || '999');
+          const numB = parseInt(b.serialNumber || '999');
+          return numA - numB;
+        });
+        setMenuItems(items);
+        localStorage.setItem('saas_restaurant_menu', JSON.stringify(items));
+      }
+    });
+
+    // 3. Real-time Subscription to Orders in Firestore
+    const unsubscribeOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+      const orderList: Order[] = [];
+      snapshot.forEach(docSnap => {
+        orderList.push(docSnap.data() as Order);
+      });
+      // Sort descending by timestamp
+      orderList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setOrders(orderList);
+      localStorage.setItem('saas_restaurant_orders', JSON.stringify(orderList));
+    });
+
+    // 4. Real-time Subscription to Password Resets in Firestore
+    const unsubscribeResets = onSnapshot(collection(db, 'password_reset_requests'), (snapshot) => {
+      const resets: PasswordResetRequest[] = [];
+      snapshot.forEach(docSnap => {
+        resets.push(docSnap.data() as PasswordResetRequest);
+      });
+      resets.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+      setPasswordResetRequests(resets);
+      localStorage.setItem('saas_restaurant_password_resets', JSON.stringify(resets));
+    });
+
+    // 5. Real-time Subscription to system passwords in Firestore Settings
+    const unsubscribePasswords = onSnapshot(doc(db, 'settings', 'passwords'), async (snapshot) => {
+      if (!snapshot.exists()) {
+        try {
+          await setDoc(doc(db, 'settings', 'passwords'), {
+            adminPass: 'admin123',
+            kitchenPass: 'kitchen123',
+            ownerPass: 'owner123',
+            superadminPass: 'super123'
+          });
+        } catch (err) {
+          console.error('Error seeding passwords to Firestore:', err);
+        }
+      } else {
+        const data = snapshot.data();
+        if (data.adminPass) {
+          setAdminPass(data.adminPass);
+          localStorage.setItem('saas_restaurant_password_admin', data.adminPass);
+        }
+        if (data.kitchenPass) {
+          setKitchenPass(data.kitchenPass);
+          localStorage.setItem('saas_restaurant_password_kitchen', data.kitchenPass);
+        }
+        if (data.ownerPass) {
+          setOwnerPass(data.ownerPass);
+          localStorage.setItem('saas_restaurant_password_owner', data.ownerPass);
+        }
+        if (data.superadminPass) {
+          setSuperadminPass(data.superadminPass);
+          localStorage.setItem('saas_restaurant_password_superadmin', data.superadminPass);
+        }
+      }
+    });
+
+    // Handle same-tab storage event updates
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key && e.key.startsWith('saas_restaurant_')) {
         loadData();
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    return () => {
+      unsubscribeMenu();
+      unsubscribeOrders();
+      unsubscribeResets();
+      unsubscribePasswords();
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // Helper to save and dispatch custom events for same-tab updates
@@ -276,50 +381,62 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     window.dispatchEvent(new Event('storage'));
   };
 
-  const updatePassword = (newPassword: string) => {
+  const updatePassword = async (newPassword: string) => {
+    let nextAdminPass = adminPass;
+    let nextKitchenPass = kitchenPass;
+    let nextOwnerPass = ownerPass;
+    let nextSuperadminPass = superadminPass;
+
     if (currentRole === 'admin') {
+      nextAdminPass = newPassword;
       setAdminPass(newPassword);
       localStorage.setItem('saas_restaurant_password_admin', newPassword);
       // Clean up reset requests so temporary password can no longer be used
-      const updated = passwordResetRequests.map(r => {
+      passwordResetRequests.forEach(async r => {
         if (r.role === 'admin' && (r.status === 'approved' || r.status === 'pending')) {
-          return { ...r, status: 'completed' as const };
+          await updateDoc(doc(db, 'password_reset_requests', r.id), { status: 'completed' });
         }
-        return r;
       });
-      setPasswordResetRequests(updated);
-      updateLocalStorage('saas_restaurant_password_resets', updated);
     } else if (currentRole === 'kitchen') {
+      nextKitchenPass = newPassword;
       setKitchenPass(newPassword);
       localStorage.setItem('saas_restaurant_password_kitchen', newPassword);
-      // Clean up reset requests for kitchen
-      const updated = passwordResetRequests.map(r => {
+      passwordResetRequests.forEach(async r => {
         if (r.role === 'kitchen' && (r.status === 'approved' || r.status === 'pending')) {
-          return { ...r, status: 'completed' as const };
+          await updateDoc(doc(db, 'password_reset_requests', r.id), { status: 'completed' });
         }
-        return r;
       });
-      setPasswordResetRequests(updated);
-      updateLocalStorage('saas_restaurant_password_resets', updated);
     } else if (currentRole === 'owner') {
+      nextOwnerPass = newPassword;
       setOwnerPass(newPassword);
       localStorage.setItem('saas_restaurant_password_owner', newPassword);
-      // Clean up reset requests for owner
-      const updated = passwordResetRequests.map(r => {
+      passwordResetRequests.forEach(async r => {
         if (r.role === 'owner' && (r.status === 'approved' || r.status === 'pending')) {
-          return { ...r, status: 'completed' as const };
+          await updateDoc(doc(db, 'password_reset_requests', r.id), { status: 'completed' });
         }
-        return r;
       });
-      setPasswordResetRequests(updated);
-      updateLocalStorage('saas_restaurant_password_resets', updated);
     } else if (currentRole === 'superadmin') {
+      nextSuperadminPass = newPassword;
       setSuperadminPass(newPassword);
       localStorage.setItem('saas_restaurant_password_superadmin', newPassword);
     } else {
+      nextAdminPass = newPassword;
       setAdminPass(newPassword);
       localStorage.setItem('saas_restaurant_password_admin', newPassword);
     }
+
+    // Save update to Firestore
+    try {
+      await setDoc(doc(db, 'settings', 'passwords'), {
+        adminPass: nextAdminPass,
+        kitchenPass: nextKitchenPass,
+        ownerPass: nextOwnerPass,
+        superadminPass: nextSuperadminPass
+      });
+    } catch (err) {
+      console.error('Error saving passwords to Firestore:', err);
+    }
+
     // Also save as default old key for any legacy components that look for it
     localStorage.setItem('saas_restaurant_password', newPassword);
     window.dispatchEvent(new Event('storage'));
@@ -385,13 +502,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       requestedAt: new Date().toISOString()
     };
 
-    const updated = [newRequest, ...passwordResetRequests];
-    setPasswordResetRequests(updated);
-    updateLocalStorage('saas_restaurant_password_resets', updated);
+    try {
+      setDoc(doc(db, 'password_reset_requests', newRequest.id), newRequest);
+    } catch (err) {
+      console.error('Error writing reset request to Firestore:', err);
+    }
     return { success: true };
   };
 
-  const approvePasswordReset = (requestId: string) => {
+  const approvePasswordReset = async (requestId: string) => {
     const request = passwordResetRequests.find(r => r.id === requestId);
     if (!request) {
       return { success: false, error: 'Request not found.' };
@@ -416,19 +535,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const salt = bcrypt.genSaltSync(10);
       const hash = bcrypt.hashSync(tempPassword, salt);
 
-      const updated = passwordResetRequests.map(r => {
-        if (r.id === requestId) {
-          return {
-            ...r,
-            status: 'approved' as const,
-            tempPasswordHash: hash
-          };
-        }
-        return r;
+      await updateDoc(doc(db, 'password_reset_requests', requestId), {
+        status: 'approved',
+        tempPasswordHash: hash
       });
-
-      setPasswordResetRequests(updated);
-      updateLocalStorage('saas_restaurant_password_resets', updated);
 
       return { success: true, tempPassword };
     } catch (e) {
@@ -437,19 +547,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const rejectPasswordReset = (requestId: string) => {
-    const updated = passwordResetRequests.map(r => {
-      if (r.id === requestId) {
-        return {
-          ...r,
-          status: 'rejected' as const
-        };
-      }
-      return r;
-    });
-
-    setPasswordResetRequests(updated);
-    updateLocalStorage('saas_restaurant_password_resets', updated);
+  const rejectPasswordReset = async (requestId: string) => {
+    try {
+      await updateDoc(doc(db, 'password_reset_requests', requestId), {
+        status: 'rejected'
+      });
+    } catch (err) {
+      console.error('Error rejecting reset request in Firestore:', err);
+    }
     return { success: true };
   };
 
@@ -543,9 +648,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       contactNumber
     };
 
-    const updatedOrders = [newOrder, ...orders];
-    setOrders(updatedOrders);
-    updateLocalStorage('saas_restaurant_orders', updatedOrders);
+    // Write to Firestore - real-time listener will instantly propagate this to all dashboards
+    try {
+      setDoc(doc(db, 'orders', newOrder.id), newOrder);
+    } catch (err) {
+      console.error('Error placing order in Firestore:', err);
+    }
     
     // Clear cart and customer preferences except table number
     clearCart();
@@ -557,106 +665,115 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Order Management Functions
-  const approveOrder = (orderId: string) => {
-    const updatedOrders = orders.map(order => {
-      if (order.id === orderId) {
-        return { ...order, status: 'cooking' as const };
-      }
-      return order;
-    });
-    setOrders(updatedOrders);
-    updateLocalStorage('saas_restaurant_orders', updatedOrders);
+  const approveOrder = async (orderId: string) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status: 'cooking' });
+    } catch (err) {
+      console.error('Error approving order in Firestore:', err);
+    }
   };
 
-  const rejectOrder = (orderId: string, reason: string) => {
-    const updatedOrders = orders.map(order => {
-      if (order.id === orderId) {
-        return { ...order, status: 'rejected' as const, rejectReason: reason };
-      }
-      return order;
-    });
-    setOrders(updatedOrders);
-    updateLocalStorage('saas_restaurant_orders', updatedOrders);
+  const rejectOrder = async (orderId: string, reason: string) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status: 'rejected', rejectReason: reason });
+    } catch (err) {
+      console.error('Error rejecting order in Firestore:', err);
+    }
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus) => {
-    const updatedOrders = orders.map(order => {
-      if (order.id === orderId) {
-        return { ...order, status };
-      }
-      return order;
-    });
-    setOrders(updatedOrders);
-    updateLocalStorage('saas_restaurant_orders', updatedOrders);
+  const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { status });
+    } catch (err) {
+      console.error('Error updating order status in Firestore:', err);
+    }
   };
 
-  const printInvoice = (orderId: string, isPrinted: boolean) => {
-    const updatedOrders = orders.map(order => {
-      if (order.id === orderId) {
-        return { 
-          ...order, 
-          status: 'completed' as const, 
-          invoicePrinted: isPrinted 
-        };
-      }
-      return order;
-    });
-    setOrders(updatedOrders);
-    updateLocalStorage('saas_restaurant_orders', updatedOrders);
+  const printInvoice = async (orderId: string, isPrinted: boolean) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { 
+        status: 'completed', 
+        invoicePrinted: isPrinted 
+      });
+    } catch (err) {
+      console.error('Error printing invoice/completing order in Firestore:', err);
+    }
   };
 
   // Menu Management Functions
-  const addMenuItem = (item: Omit<MenuItem, 'id' | 'createdAt'>) => {
+  const addMenuItem = async (item: Omit<MenuItem, 'id' | 'createdAt'>) => {
     const newItem: MenuItem = {
       ...item,
       id: 'm-' + Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString()
     };
-    const updatedMenu = [...menuItems, newItem];
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+    try {
+      await setDoc(doc(db, 'menu_items', newItem.id), newItem);
+    } catch (err) {
+      console.error('Error adding menu item in Firestore:', err);
+    }
   };
 
-  const editMenuItem = (updatedItem: MenuItem) => {
-    const updatedMenu = menuItems.map(item => item.id === updatedItem.id ? updatedItem : item);
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  const editMenuItem = async (updatedItem: MenuItem) => {
+    try {
+      await setDoc(doc(db, 'menu_items', updatedItem.id), updatedItem);
+    } catch (err) {
+      console.error('Error editing menu item in Firestore:', err);
+    }
   };
 
-  const deleteMenuItem = (id: string) => {
-    const updatedMenu = menuItems.filter(item => item.id !== id);
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  const deleteMenuItem = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'menu_items', id));
+    } catch (err) {
+      console.error('Error deleting menu item in Firestore:', err);
+    }
   };
 
-  const updateItemPrice = (id: string, price: number) => {
-    const updatedMenu = menuItems.map(item => item.id === id ? { ...item, price } : item);
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  const updateItemPrice = async (id: string, price: number) => {
+    try {
+      await updateDoc(doc(db, 'menu_items', id), { price });
+    } catch (err) {
+      console.error('Error updating item price in Firestore:', err);
+    }
   };
 
-  const updateItemVat = (id: string, vat: number) => {
-    const updatedMenu = menuItems.map(item => item.id === id ? { ...item, vat } : item);
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  const updateItemVat = async (id: string, vat: number) => {
+    try {
+      await updateDoc(doc(db, 'menu_items', id), { vat });
+    } catch (err) {
+      console.error('Error updating item VAT in Firestore:', err);
+    }
   };
 
-  const updateAllItemsVat = (vat: number) => {
-    const updatedMenu = menuItems.map(item => ({ ...item, vat }));
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  const updateAllItemsVat = async (vat: number) => {
+    try {
+      const updates = menuItems.map(item => 
+        updateDoc(doc(db, 'menu_items', item.id), { vat })
+      );
+      await Promise.all(updates);
+    } catch (err) {
+      console.error('Error updating all items VAT in Firestore:', err);
+    }
   };
 
-  const updateItemDiscount = (id: string, discount: number) => {
-    const updatedMenu = menuItems.map(item => item.id === id ? { ...item, discount } : item);
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  const updateItemDiscount = async (id: string, discount: number) => {
+    try {
+      await updateDoc(doc(db, 'menu_items', id), { discount });
+    } catch (err) {
+      console.error('Error updating item discount in Firestore:', err);
+    }
   };
 
-  const toggleItemAvailability = (id: string) => {
-    const updatedMenu = menuItems.map(item => item.id === id ? { ...item, available: !item.available } : item);
-    setMenuItems(updatedMenu);
-    updateLocalStorage('saas_restaurant_menu', updatedMenu);
+  const toggleItemAvailability = async (id: string) => {
+    const targetItem = menuItems.find(item => item.id === id);
+    if (targetItem) {
+      try {
+        await updateDoc(doc(db, 'menu_items', id), { available: !targetItem.available });
+      } catch (err) {
+        console.error('Error toggling item availability in Firestore:', err);
+      }
+    }
   };
 
   // Server-Side AI Voice Parsing Proxy call
