@@ -102,11 +102,36 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
         }
       }
 
+      let resolvedCategory = item.category || '';
+      if (!resolvedCategory) {
+        const foundMenu = menuItems.find(m => m.id === item.menuItemId);
+        if (foundMenu?.category) {
+          resolvedCategory = foundMenu.category;
+        } else {
+          const nameLower = cleanName.toLowerCase();
+          if (nameLower.includes('burger')) {
+            resolvedCategory = 'Burgers';
+          } else if (nameLower.includes('pizza')) {
+            resolvedCategory = 'Pizza';
+          } else if (nameLower.includes('bread') || nameLower.includes('salad') || nameLower.includes('soup') || nameLower.includes('appetizer')) {
+            resolvedCategory = 'Appetizers';
+          } else if (nameLower.includes('juice') || nameLower.includes('coffee') || nameLower.includes('tea') || nameLower.includes('drink') || nameLower.includes('shake')) {
+            resolvedCategory = 'Beverages';
+          } else if (nameLower.includes('pasta') || nameLower.includes('steak')) {
+            resolvedCategory = 'Mains';
+          } else if (nameLower.includes('cake') || nameLower.includes('ice cream') || nameLower.includes('waffle')) {
+            resolvedCategory = 'Desserts';
+          } else {
+            resolvedCategory = 'Uncategorized';
+          }
+        }
+      }
+
       salesRows.push({
         itemId: resolvedItemId,
         orderId: order.id,
         itemName: rawItemName,
-        category: item.category || 'Uncategorized',
+        category: resolvedCategory,
         price: basePrice,
         vat: item.vat,
         discount: item.discount,

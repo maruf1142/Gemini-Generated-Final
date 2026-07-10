@@ -40,6 +40,7 @@ export interface Order {
     vat: number;
     discount: number;
     quantity: number;
+    category?: string;
   }[];
   status: OrderStatus;
   timestamp: string; // ISO string

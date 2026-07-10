@@ -531,7 +531,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         price: item.menuItem.price,
         vat: item.menuItem.vat,
         discount: item.menuItem.discount,
-        quantity: item.quantity
+        quantity: item.quantity,
+        category: item.menuItem.category
       })),
       status: 'pending',
       timestamp: now.toISOString(),
