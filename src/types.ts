@@ -60,7 +60,9 @@ export interface SalesReportRow {
   category: string;
   price: number;
   vat: number;
+  vatAmount: number;
   discount: number;
+  discountAmount: number;
   totalPrice: number;
   tableNumber: string;
   date: string;

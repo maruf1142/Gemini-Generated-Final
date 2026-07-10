@@ -127,6 +127,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
         }
       }
 
+      const discAmtPerItem = basePrice * (item.discount / 100);
+
       salesRows.push({
         itemId: resolvedItemId,
         orderId: order.id,
@@ -134,7 +136,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
         category: resolvedCategory,
         price: basePrice,
         vat: item.vat,
+        vatAmount: vatAmount,
         discount: item.discount,
+        discountAmount: discAmtPerItem,
         totalPrice: finalPrice,
         tableNumber: order.tableNumber,
         date: order.createdAtDate,
@@ -167,12 +171,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
       const vatVal = (discountedVal * (item.vat / 100));
       const totalVal = discountedVal + vatVal;
 
-      totalNetBase += baseVal;
       totalDiscounts += discVal;
       totalVatAmount += vatVal;
       totalGrossRevenue += totalVal;
     });
   });
+
+  // Calculate Net Base Value as Gross Revenue minus VAT and Discount
+  totalNetBase = totalGrossRevenue - totalVatAmount - totalDiscounts;
 
   // Top Selling Items calculations (Frequency count)
   const itemCounts: { [name: string]: { qty: number; revenue: number } } = {};
@@ -352,6 +358,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
       'Item Name',
       'Category',
       'Unit Price',
+      'VAT Amount (BDT)',
+      'Discount Amount (BDT)',
       'VAT Rate (%)',
       'Discount (%)',
       'Table Number',
@@ -370,6 +378,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
         `"${(row.itemName || '').replace(/"/g, '""')}"`,
         `"${(row.category || '').replace(/"/g, '""')}"`,
         row.price.toFixed(2),
+        row.vatAmount.toFixed(2),
+        row.discountAmount.toFixed(2),
         `"${row.vat}%"`,
         `"${row.discount}%"`,
         `"T${row.tableNumber}"`,
@@ -912,6 +922,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
                     <th className="p-3">Item Name</th>
                     <th className="p-3">Category</th>
                     <th className="p-3 text-right">Unit Price</th>
+                    <th className="p-3 text-right text-zinc-400 font-mono">VAT Amount</th>
+                    <th className="p-3 text-right text-rose-400 font-mono">Discount Amount</th>
                     <th className="p-3 text-center">VAT Rate</th>
                     <th className="p-3 text-center">Discount</th>
                     <th className="p-3 text-center">Table</th>
@@ -928,6 +940,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
                       <td className="p-3 font-medium text-zinc-100">{row.itemName}</td>
                       <td className="p-3 text-zinc-400">{row.category}</td>
                       <td className="p-3 text-right font-mono">{row.price.toFixed(2)}</td>
+                      <td className="p-3 text-right font-mono text-zinc-400">{row.vatAmount.toFixed(2)}</td>
+                      <td className="p-3 text-right font-mono text-rose-400">{row.discountAmount.toFixed(2)}</td>
                       <td className="p-3 text-center font-mono text-zinc-400">{row.vat}%</td>
                       <td className="p-3 text-center font-mono text-rose-400">{row.discount}%</td>
                       <td className="p-3 text-center font-mono font-bold">T{row.tableNumber}</td>
