@@ -76,6 +76,70 @@ interface AppContextType {
   parseVoiceWithGemini: (transcript: string) => Promise<{ success: boolean; itemsAdded: number; tableDetected?: string; noteDetected?: string }>;
 }
 
+function cleanUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefined(item)) as unknown as T;
+  }
+  if (typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = (obj as any)[key];
+      if (val !== undefined) {
+        newObj[key] = cleanUndefined(val);
+      }
+    }
+    return newObj as T;
+  }
+  return obj;
+}
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -202,7 +266,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Seed default menu to Firestore if empty
         try {
           for (const item of DEFAULT_MENU) {
-            await setDoc(doc(db, 'menu_items', item.id), item);
+            await setDoc(doc(db, 'menu_items', item.id), cleanUndefined(item));
           }
         } catch (err) {
           console.error('Error seeding menu to Firestore:', err);
@@ -221,6 +285,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setMenuItems(items);
         localStorage.setItem('saas_restaurant_menu', JSON.stringify(items));
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'menu_items');
     });
 
     // 3. Real-time Subscription to Orders in Firestore
@@ -233,6 +299,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       orderList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setOrders(orderList);
       localStorage.setItem('saas_restaurant_orders', JSON.stringify(orderList));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'orders');
     });
 
     // 4. Real-time Subscription to Password Resets in Firestore
@@ -244,6 +312,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       resets.sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
       setPasswordResetRequests(resets);
       localStorage.setItem('saas_restaurant_password_resets', JSON.stringify(resets));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'password_reset_requests');
     });
 
     // 5. Real-time Subscription to system passwords in Firestore Settings
@@ -278,6 +348,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           localStorage.setItem('saas_restaurant_password_superadmin', data.superadminPass);
         }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'settings/passwords');
     });
 
     // Handle same-tab storage event updates
@@ -503,7 +575,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     try {
-      setDoc(doc(db, 'password_reset_requests', newRequest.id), newRequest);
+      setDoc(doc(db, 'password_reset_requests', newRequest.id), cleanUndefined(newRequest));
     } catch (err) {
       console.error('Error writing reset request to Firestore:', err);
     }
@@ -650,7 +722,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Write to Firestore - real-time listener will instantly propagate this to all dashboards
     try {
-      setDoc(doc(db, 'orders', newOrder.id), newOrder);
+      setDoc(doc(db, 'orders', newOrder.id), cleanUndefined(newOrder));
     } catch (err) {
       console.error('Error placing order in Firestore:', err);
     }
@@ -708,7 +780,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString()
     };
     try {
-      await setDoc(doc(db, 'menu_items', newItem.id), newItem);
+      await setDoc(doc(db, 'menu_items', newItem.id), cleanUndefined(newItem));
     } catch (err) {
       console.error('Error adding menu item in Firestore:', err);
     }
@@ -716,7 +788,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const editMenuItem = async (updatedItem: MenuItem) => {
     try {
-      await setDoc(doc(db, 'menu_items', updatedItem.id), updatedItem);
+      await setDoc(doc(db, 'menu_items', updatedItem.id), cleanUndefined(updatedItem));
     } catch (err) {
       console.error('Error editing menu item in Firestore:', err);
     }

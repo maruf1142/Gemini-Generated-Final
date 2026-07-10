@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "A single menu item offered by the restaurant.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "vat": { "type": "number" },
+        "discount": { "type": "number" },
+        "image": { "type": "string" },
+        "available": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "description", "category", "price", "vat", "discount", "image", "available", "createdAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "An order placed by a customer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tableNumber": { "type": "string" },
+        "specialNotes": { "type": "string" },
+        "orderType": { "type": "string" },
+        "items": { "type": "array" },
+        "status": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "createdAtTime": { "type": "string" },
+        "createdAtDate": { "type": "string" },
+        "selfieUrl": { "type": "string" },
+        "signature": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "rejectReason": { "type": "string" },
+        "invoicePrinted": { "type": "boolean" }
+      },
+      "required": ["id", "tableNumber", "orderType", "items", "status", "timestamp", "createdAtTime", "createdAtDate"]
+    },
+    "PasswordResetRequest": {
+      "title": "PasswordResetRequest",
+      "description": "A password reset request submitted by a kitchen, admin, or owner user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string" },
+        "username": { "type": "string" },
+        "status": { "type": "string" },
+        "requestedAt": { "type": "string", "format": "date-time" },
+        "tempPasswordHash": { "type": "string" }
+      },
+      "required": ["id", "role", "username", "status", "requestedAt"]
+    },
+    "Passwords": {
+      "title": "Passwords",
+      "description": "The system-wide passwords for different user roles.",
+      "type": "object",
+      "properties": {
+        "adminPass": { "type": "string" },
+        "kitchenPass": { "type": "string" },
+        "ownerPass": { "type": "string" },
+        "superadminPass": { "type": "string" }
+      },
+      "required": ["adminPass", "kitchenPass", "ownerPass", "superadminPass"]
+    }
+  },
+  "firestore": {
+    "menu_items": {
+      "schema": "MenuItem",
+      "description": "Collection of menu items."
+    },
+    "orders": {
+      "schema": "Order",
+      "description": "Collection of orders placed by customers."
+    },
+    "password_reset_requests": {
+      "schema": "PasswordResetRequest",
+      "description": "Collection of password reset requests."
+    },
+    "settings": {
+      "schema": "Passwords",
+      "description": "Collection containing system settings and configuration document, specifically the passwords document."
+    }
+  }
+}

@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { MenuItem, Order, OrderType } from '../types';
 import { 
-  ShoppingBag, Mic, MicOff, Camera, Pencil, ArrowLeft, Plus, Minus, 
+  ShoppingBag, ShoppingCart, Mic, MicOff, Camera, Pencil, ArrowLeft, Plus, Minus, 
   Trash2, Sparkles, Check, ChevronRight, Eye, RefreshCw, X, Clock, Utensils, Phone 
 } from 'lucide-react';
 import { showToast } from './Notification';
@@ -34,6 +34,16 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
     placeOrder,
     parseVoiceWithGemini
   } = useApp();
+
+  const handleAddToCart = (item: MenuItem, qty: number) => {
+    addToCart(item, qty);
+    setTimeout(() => {
+      const element = document.getElementById('your-cart-section');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 100);
+  };
 
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [showTableModal, setShowTableModal] = useState<boolean>(false);
@@ -474,11 +484,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
           </div>
 
           {/* Checkout Shopping Cart Section */}
-          <div className="space-y-3">
+          <div id="your-cart-section" className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-serif font-semibold text-zinc-200 tracking-wide flex items-center gap-2 text-sm">
-                <ShoppingBag className="w-4 h-4 text-gold-400" />
-                Shopping Bag
+                <ShoppingCart className="w-4 h-4 text-gold-400" />
+                Your Cart
               </h3>
               <span className="text-[11px] bg-zinc-800 text-zinc-300 px-2.5 py-0.5 rounded-full font-sans">
                 <span className="font-extrabold text-gold-400 font-mono">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span> items
@@ -487,8 +497,8 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
 
             {cart.length === 0 ? (
               <div className="text-center py-8 bg-zinc-950/20 border border-dashed border-zinc-800 rounded-xl">
-                <ShoppingBag className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
-                <p className="text-xs text-zinc-500">Your bag is empty.</p>
+                <ShoppingCart className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                <p className="text-xs text-zinc-500">Your cart is empty.</p>
                 <p className="text-[10px] text-zinc-600 mt-1">Select delicacies from the menu.</p>
               </div>
             ) : (
@@ -725,11 +735,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
                   
                   {item.available ? (
                     <button
-                      onClick={() => addToCart(item, 1)}
+                      onClick={() => handleAddToCart(item, 1)}
                       className="inline-flex items-center gap-1.5 bg-zinc-800 hover:bg-gold-500 hover:text-zinc-950 text-gold-400 font-sans text-xs py-1.5 px-3 rounded-lg transition-all cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Add to Bag
+                      Add to Cart
                     </button>
                   ) : (
                     <button
@@ -758,14 +768,14 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
 
           {!currentTable ? (
             <div className="text-center py-10 bg-zinc-900/20 border border-zinc-800 rounded-xl max-w-xl mx-auto">
-              <ShoppingBag className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
+              <ShoppingCart className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
               <p className="text-xs text-zinc-400">Please enter a table number to track existing orders.</p>
             </div>
           ) : activeTableOrders.length === 0 ? (
             <div className="text-center py-10 bg-zinc-900/20 border border-zinc-800 rounded-xl max-w-xl mx-auto">
-              <ShoppingBag className="w-10 h-10 text-zinc-700 mx-auto mb-2 animate-pulse" />
+              <ShoppingCart className="w-10 h-10 text-zinc-700 mx-auto mb-2 animate-pulse" />
               <p className="text-xs text-zinc-400">No active orders found for Table {currentTable} right now.</p>
-              <p className="text-[10px] text-zinc-600 mt-1">Add items to bag and confirm to submit an order.</p>
+              <p className="text-[10px] text-zinc-600 mt-1">Add items to cart and confirm to submit an order.</p>
             </div>
           ) : (
             <div className="space-y-4 max-w-3xl mx-auto">
@@ -1216,7 +1226,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
                   <Utensils className="w-5 h-5 text-gold-400" />
                   Gourmet Menu Summary
                 </h3>
-                <p className="text-xs text-zinc-500 mt-0.5">Quickly view all items, prices, and add directly to your bag.</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Quickly view all items, prices, and add directly to your cart.</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative">
@@ -1323,8 +1333,8 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ onBackToLa
                                   {item.available ? (
                                     <button
                                       onClick={() => {
-                                        addToCart(item, 1);
-                                        showToast(`Added ${item.name} to bag!`, 'success');
+                                        handleAddToCart(item, 1);
+                                        showToast(`Added ${item.name} to cart!`, 'success');
                                       }}
                                       className="inline-flex items-center gap-1 bg-gold-500 hover:bg-gold-400 text-zinc-950 font-sans font-bold py-1 px-2.5 rounded-lg text-[11px] transition-all cursor-pointer shadow-md shadow-gold-500/5 active:scale-95"
                                     >
