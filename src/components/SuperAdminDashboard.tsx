@@ -220,7 +220,11 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
     };
 
     if (editingItem) {
-      editMenuItem({ ...itemData, id: editingItem.id });
+      editMenuItem({ 
+        ...itemData, 
+        id: editingItem.id, 
+        createdAt: editingItem.createdAt || new Date().toISOString() 
+      });
       showToast(`Successfully updated "${name}"`, 'success');
     } else {
       addMenuItem(itemData);
