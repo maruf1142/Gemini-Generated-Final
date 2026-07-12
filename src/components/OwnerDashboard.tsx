@@ -32,7 +32,7 @@ interface OwnerDashboardProps {
 }
 
 export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole, onLogout }) => {
-  const { currentRole, orders, adminPassword, updatePassword, menuItems } = useApp();
+  const { currentRole, orders, adminPassword, updatePassword, menuItems, sandboxMode } = useApp();
 
   // Date range filters
   const [startDate, setStartDate] = useState<string>(getBangladeshDateString());
@@ -455,38 +455,42 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ onNavigateToRole
               SaaS Sales Analytics
             </button>
             
-            <button 
-              onClick={() => onNavigateToRole('admin')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <ClipboardList className="w-4 h-4" />
-                Admin Overview
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+            {sandboxMode && (
+              <>
+                <button 
+                  onClick={() => onNavigateToRole('admin')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <ClipboardList className="w-4 h-4" />
+                    Admin Overview
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
 
-            <button 
-              onClick={() => onNavigateToRole('kitchen')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <Sliders className="w-4 h-4" />
-                Kitchen Crew
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+                <button 
+                  onClick={() => onNavigateToRole('kitchen')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <Sliders className="w-4 h-4" />
+                    Kitchen Crew
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
 
-            <button 
-              onClick={() => onNavigateToRole('superadmin')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <Key className="w-4 h-4" />
-                Super Admin
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+                <button 
+                  onClick={() => onNavigateToRole('superadmin')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <Key className="w-4 h-4" />
+                    Super Admin
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
+              </>
+            )}
           </nav>
         </div>
 

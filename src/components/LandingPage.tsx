@@ -18,7 +18,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onNavigateToCustomer, 
   onNavigateToDashboard 
 }) => {
-  const { currentRole, login, logout, requestPasswordReset } = useApp();
+  const { currentRole, login, logout, requestPasswordReset, sandboxMode, toggleSandboxMode } = useApp();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [username, setUsername] = useState('');
@@ -74,22 +74,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span className="text-[10px] text-gold-400/50 block font-mono tracking-widest uppercase mt-0.5">SaaS Gastronomy</span>
           </div>
         </div>
-        {currentRole && (
-          <div className="flex items-center gap-4">
-            <span className="text-xs bg-gold-500/10 border border-gold-500/30 text-gold-400 font-mono py-1 px-3 rounded-full">
-              Active: {formatRoleTitle(currentRole)}
-            </span>
-            <button 
-              onClick={() => {
-                logout();
-                showToast('Logged out successfully', 'info');
-              }} 
-              className="text-xs text-zinc-400 hover:text-gold-400 transition-colors py-1 cursor-pointer"
-            >
-              Log Out
-            </button>
-          </div>
-        )}
+        
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={toggleSandboxMode}
+            type="button"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-mono transition-all cursor-pointer ${
+              sandboxMode 
+                ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400 hover:bg-emerald-950/50' 
+                : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:bg-zinc-800/40'
+            }`}
+            title="Toggle Developer Sandbox Mode to reveal default passwords and bypass portals."
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${sandboxMode ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`} />
+            <span>{sandboxMode ? 'Sandbox Active' : 'Production Mode'}</span>
+          </button>
+
+          {currentRole && (
+            <div className="flex items-center gap-4">
+              <span className="text-xs bg-gold-500/10 border border-gold-500/30 text-gold-400 font-mono py-1 px-3 rounded-full">
+                Active: {formatRoleTitle(currentRole)}
+              </span>
+              <button 
+                onClick={() => {
+                  logout();
+                  showToast('Logged out successfully', 'info');
+                }} 
+                className="text-xs text-zinc-400 hover:text-gold-400 transition-colors py-1 cursor-pointer"
+              >
+                Log Out
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -269,9 +286,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
 
               {/* Help tip */}
-              <div className="text-[10px] text-zinc-500 leading-normal bg-zinc-900/50 border border-zinc-800 p-2.5 rounded-lg font-mono">
-                💡 <span className="text-gold-400/80">SaaS Access:</span> Log in with role name (e.g. <span className="text-zinc-300">"{selectedRole}"</span>) or superadmin credentials (<span className="text-zinc-300">"superadmin"</span>) and the master administrative security key. Default is <span className="text-zinc-300">"admin123"</span>.
-              </div>
+              {sandboxMode && (
+                <div className="text-[10px] text-zinc-500 leading-normal bg-zinc-900/50 border border-zinc-800 p-2.5 rounded-lg font-mono">
+                  💡 <span className="text-gold-400/80">SaaS Access:</span> Log in with role name (e.g. <span className="text-zinc-300">"{selectedRole}"</span>) or superadmin credentials (<span className="text-zinc-300">"superadmin"</span>) and the master administrative security key. Default is <span className="text-zinc-300">"admin123"</span>.
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">

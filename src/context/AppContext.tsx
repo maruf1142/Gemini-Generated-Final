@@ -32,12 +32,14 @@ interface AppContextType {
   currentTable: string;
   specialNotes: string;
   orderType: OrderType;
+  sandboxMode: boolean;
+  toggleSandboxMode: () => void;
   
   // Password Reset Workflow
   passwordResetRequests: PasswordResetRequest[];
   requestPasswordReset: (username: string, role: Role) => { success: boolean; error?: string };
-  approvePasswordReset: (requestId: string) => { success: boolean; tempPassword?: string; error?: string };
-  rejectPasswordReset: (requestId: string) => { success: boolean; error?: string };
+  approvePasswordReset: (requestId: string) => Promise<{ success: boolean; tempPassword?: string; error?: string }>;
+  rejectPasswordReset: (requestId: string) => Promise<{ success: boolean; error?: string }>;
   
   // Auth
   login: (username: string, password: string, targetRole: Role) => { success: boolean; error?: string };
@@ -149,6 +151,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
+  
+  const [sandboxMode, setSandboxMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('saas_restaurant_sandbox_mode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  const toggleSandboxMode = () => {
+    setSandboxMode(prev => {
+      const newVal = !prev;
+      localStorage.setItem('saas_restaurant_sandbox_mode', JSON.stringify(newVal));
+      return newVal;
+    });
+  };
   
   // Separate passwords for each dashboard / portal
   const [adminPass, setAdminPass] = useState<string>('admin123');
@@ -956,6 +971,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentTable,
       specialNotes,
       orderType,
+      sandboxMode,
+      toggleSandboxMode,
       passwordResetRequests,
       requestPasswordReset,
       approvePasswordReset,

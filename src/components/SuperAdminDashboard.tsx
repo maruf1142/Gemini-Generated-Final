@@ -55,7 +55,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
     updatePassword,
     passwordResetRequests,
     approvePasswordReset,
-    rejectPasswordReset
+    rejectPasswordReset,
+    sandboxMode
   } = useApp();
 
   // State managers
@@ -520,38 +521,42 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
               )}
             </button>
             
-            <button 
-              onClick={() => onNavigateToRole('admin')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <ClipboardList className="w-4 h-4" />
-                Admin Overview
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+            {sandboxMode && (
+              <>
+                <button 
+                  onClick={() => onNavigateToRole('admin')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <ClipboardList className="w-4 h-4" />
+                    Admin Overview
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
 
-            <button 
-              onClick={() => onNavigateToRole('kitchen')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <Sliders className="w-4 h-4" />
-                Kitchen Crew
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+                <button 
+                  onClick={() => onNavigateToRole('kitchen')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <Sliders className="w-4 h-4" />
+                    Kitchen Crew
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
 
-            <button 
-              onClick={() => onNavigateToRole('owner')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <DollarSign className="w-4 h-4" />
-                Owner Console
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+                <button 
+                  onClick={() => onNavigateToRole('owner')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <DollarSign className="w-4 h-4" />
+                    Owner Console
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
+              </>
+            )}
           </nav>
         </div>
 
@@ -656,13 +661,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                             {request.status === 'pending' ? (
                               <div className="flex items-center justify-center gap-2">
                                 <button
-                                  onClick={() => {
-                                    const result = approvePasswordReset(request.id);
-                                    if (result.success && result.tempPassword) {
-                                      setApprovedTempPassword(result.tempPassword);
-                                      showToast('Request approved successfully!', 'success');
-                                    } else {
-                                      showToast(result.error || 'Approval failed.', 'error');
+                                  onClick={async () => {
+                                    try {
+                                      const result = await approvePasswordReset(request.id);
+                                      if (result.success && result.tempPassword) {
+                                        setApprovedTempPassword(result.tempPassword);
+                                        showToast('Request approved successfully!', 'success');
+                                      } else {
+                                        showToast(result.error || 'Approval failed.', 'error');
+                                      }
+                                    } catch (err: any) {
+                                      showToast(err.message || 'Approval failed.', 'error');
                                     }
                                   }}
                                   className="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-1.5 px-3.5 rounded-lg text-xs cursor-pointer transition-all shadow-md shadow-emerald-500/10 hover:scale-[1.02]"
@@ -671,12 +680,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                                   Approve
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    const result = rejectPasswordReset(request.id);
-                                    if (result.success) {
-                                      showToast('Request rejected.', 'info');
-                                    } else {
-                                      showToast(result.error || 'Rejection failed.', 'error');
+                                  onClick={async () => {
+                                    try {
+                                      const result = await rejectPasswordReset(request.id);
+                                      if (result.success) {
+                                        showToast('Request rejected.', 'info');
+                                      } else {
+                                        showToast(result.error || 'Rejection failed.', 'error');
+                                      }
+                                    } catch (err: any) {
+                                      showToast(err.message || 'Rejection failed.', 'error');
                                     }
                                   }}
                                   className="flex items-center gap-1.5 bg-zinc-800 hover:bg-red-500 hover:text-white text-zinc-400 font-bold py-1.5 px-3.5 rounded-lg text-xs cursor-pointer transition-all border border-zinc-700/50 hover:border-transparent hover:scale-[1.02]"

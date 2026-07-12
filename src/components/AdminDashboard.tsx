@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext';
 import { Order, OrderStatus, Role } from '../types';
 import { 
   ClipboardList, Check, X, ShieldAlert, Calendar, DollarSign, 
-  ShoppingBag, HelpCircle, Eye, Printer, Users, Key, ChevronRight, Phone 
+  ShoppingBag, HelpCircle, Eye, Printer, Users, Key, ChevronRight, Phone, Search 
 } from 'lucide-react';
 import { showToast } from './Notification';
 import { InvoicePrint } from './InvoicePrint';
@@ -28,7 +28,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
     updatePassword, 
     approveOrder, 
     rejectOrder, 
-    printInvoice 
+    printInvoice,
+    sandboxMode,
+    menuItems,
+    toggleItemAvailability
   } = useApp();
 
   const [filterDate, setFilterDate] = useState<string>(getBangladeshDateString());
@@ -43,6 +46,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
   // Password change states
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
   const [newPasswordInput, setNewPasswordInput] = useState<string>('');
+
+  // Tab & Menu state for Admin
+  const [activeTab, setActiveTab] = useState<'overview' | 'menu'>('overview');
+  const [menuSearch, setMenuSearch] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
   // Authentication Guard
   if (currentRole !== 'admin') {
@@ -136,6 +144,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
   // Filter historical orders by select date
   const filteredHistory = orders.filter(o => o.createdAtDate === filterDate && o.status === 'completed');
 
+  // Compute unique categories from menuItems
+  const categories = ['All', ...Array.from(new Set(menuItems.map(item => item.category)))];
+
+  // Filter menu items for Admin view
+  const filteredMenuItems = menuItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(menuSearch.toLowerCase()) || 
+                          item.category.toLowerCase().includes(menuSearch.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row">
       
@@ -161,45 +180,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
             </div>
             
             <button 
-              onClick={() => onNavigateToRole('admin')}
-              className="w-full flex items-center gap-3 bg-gold-950/30 text-gold-400 border border-gold-500/20 py-2.5 px-4 rounded-xl font-medium cursor-pointer"
+              onClick={() => setActiveTab('overview')}
+              className={`w-full flex items-center gap-3 py-2.5 px-4 rounded-xl font-medium cursor-pointer transition-all ${
+                activeTab === 'overview'
+                  ? 'bg-gold-950/30 text-gold-400 border border-gold-500/20'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 border border-transparent'
+              }`}
             >
               <ClipboardList className="w-4 h-4" />
               Overview & Approvals
             </button>
 
             <button 
-              onClick={() => onNavigateToRole('kitchen')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+              onClick={() => setActiveTab('menu')}
+              className={`w-full flex items-center gap-3 py-2.5 px-4 rounded-xl font-medium cursor-pointer transition-all ${
+                activeTab === 'menu'
+                  ? 'bg-gold-950/30 text-gold-400 border border-gold-500/20'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 border border-transparent'
+              }`}
             >
-              <span className="flex items-center gap-3">
-                <Users className="w-4 h-4" />
-                Kitchen Dashboard
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+              <ShoppingBag className="w-4 h-4" />
+              Product Availability
             </button>
 
-            <button 
-              onClick={() => onNavigateToRole('superadmin')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <Key className="w-4 h-4" />
-                Super Admin
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+            {sandboxMode && (
+              <>
+                <button 
+                  onClick={() => onNavigateToRole('kitchen')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <Users className="w-4 h-4" />
+                    Kitchen Dashboard
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
 
-            <button 
-              onClick={() => onNavigateToRole('owner')}
-              className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-            >
-              <span className="flex items-center gap-3">
-                <DollarSign className="w-4 h-4" />
-                Owner Console
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-            </button>
+                <button 
+                  onClick={() => onNavigateToRole('superadmin')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <Key className="w-4 h-4" />
+                    Super Admin
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
+
+                <button 
+                  onClick={() => onNavigateToRole('owner')}
+                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-3">
+                    <DollarSign className="w-4 h-4" />
+                    Owner Console
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                </button>
+              </>
+            )}
           </nav>
         </div>
 
@@ -232,8 +271,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
         {/* Top welcome */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gold-500/5 pb-6">
           <div>
-            <h2 className="font-serif text-3xl font-bold tracking-tight text-zinc-100">Management Overview</h2>
-            <p className="text-xs text-zinc-500 mt-1">Approve incoming table orders and archive completed invoices.</p>
+            <h2 className="font-serif text-3xl font-bold tracking-tight text-zinc-100">
+              {activeTab === 'overview' ? 'Management Overview' : 'Product Availability Control'}
+            </h2>
+            <p className="text-xs text-zinc-500 mt-1">
+              {activeTab === 'overview' 
+                ? 'Approve incoming table orders and archive completed invoices.' 
+                : 'Toggle immediate availability of items on the customer menu.'}
+            </p>
           </div>
 
           <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg p-2 font-mono text-[11px] text-zinc-400">
@@ -242,6 +287,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
             <span>Today: {todayDateStr}</span>
           </div>
         </div>
+
+        {activeTab === 'overview' ? (
+          <>
 
         {/* Statistics Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -661,6 +709,153 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
             </div>
           )}
         </div>
+          </>
+        ) : (
+          /* Product Availability Control Panel */
+          <div className="space-y-6">
+            {/* Search and Filters */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-zinc-900/50 p-4 rounded-xl border border-gold-500/10">
+              <div className="relative w-full md:w-80">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+                <input
+                  type="text"
+                  placeholder="Search item name or category..."
+                  value={menuSearch}
+                  onChange={(e) => setMenuSearch(e.target.value)}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-2 pl-9 pr-4 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-gold-500/50"
+                />
+                {menuSearch && (
+                  <button
+                    onClick={() => setMenuSearch('')}
+                    className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-200 text-xs"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Categories Scroll/List */}
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-mono font-medium transition-all whitespace-nowrap cursor-pointer ${
+                      selectedCategory === cat
+                        ? 'bg-gold-500/10 border border-gold-500/30 text-gold-400'
+                        : 'bg-zinc-950 hover:bg-zinc-850 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Product Table */}
+            <div className="glass-card rounded-2xl border border-gold-500/10 overflow-hidden shadow-2xl">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-xs">
+                  <thead>
+                    <tr className="bg-zinc-900 border-b border-zinc-800 text-zinc-400 uppercase tracking-wider font-mono text-[10px]">
+                      <th className="p-4">Dish</th>
+                      <th className="p-4">Category</th>
+                      <th className="p-4 text-right">Price (incl. VAT & Disc.)</th>
+                      <th className="p-4 text-center">Status</th>
+                      <th className="p-4 text-center">Control Toggle</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-850">
+                    {filteredMenuItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-zinc-500 font-mono">
+                          No menu items found matching search or category filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredMenuItems.map(item => {
+                        const discountedPrice = item.price * (1 - item.discount / 100);
+                        const finalPrice = discountedPrice * (1 + item.vat / 100);
+
+                        return (
+                          <tr key={item.id} className="hover:bg-zinc-900/20 transition-all">
+                            {/* Dish image and details */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950 flex-shrink-0">
+                                  <img 
+                                    src={item.image} 
+                                    alt={item.name} 
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-zinc-200 text-sm">{item.name}</div>
+                                  <div className="text-[10px] text-zinc-500 line-clamp-1 max-w-xs">{item.description}</div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Category */}
+                            <td className="p-4 font-mono text-zinc-400">
+                              <span className="bg-zinc-900 px-2 py-1 rounded-md border border-zinc-800/60">
+                                {item.category}
+                              </span>
+                            </td>
+
+                            {/* Price */}
+                            <td className="p-4 text-right font-mono">
+                              <div className="text-zinc-200 font-bold">{finalPrice.toFixed(2)} BDT</div>
+                              {item.discount > 0 && (
+                                <div className="text-[9px] text-gold-400/80">
+                                  Base: {item.price.toFixed(2)} (-{item.discount}%)
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Status display */}
+                            <td className="p-4 text-center">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-mono text-[10px] font-bold border ${
+                                item.available 
+                                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                                  : 'bg-zinc-800 border-zinc-700 text-zinc-500'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${item.available ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+                                {item.available ? 'Active' : 'Disabled'}
+                              </span>
+                            </td>
+
+                            {/* Toggle switcher */}
+                            <td className="p-4 text-center">
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    await toggleItemAvailability(item.id);
+                                    showToast(`Availability status updated for "${item.name}"`, 'success');
+                                  } catch (err) {
+                                    showToast('Failed to update availability', 'error');
+                                  }
+                                }}
+                                className={`py-1.5 px-3.5 rounded-xl font-mono text-[10px] font-bold cursor-pointer transition-all border ${
+                                  item.available 
+                                    ? 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-rose-400' 
+                                    : 'bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                                }`}
+                              >
+                                {item.available ? 'Disable' : 'Enable'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
       </main>
 
