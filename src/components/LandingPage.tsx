@@ -242,6 +242,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     placeholder={`e.g. ${selectedRole} or superadmin`}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
+                    autoComplete="username"
                     className="w-full bg-zinc-900 border border-gold-500/10 rounded-lg py-2.5 px-3.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/20"
                   />
                 </div>
@@ -276,6 +277,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     placeholder="Enter security key"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
                     className="w-full bg-zinc-900 border border-gold-500/10 rounded-lg py-2.5 px-3.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-gold-500/50 focus:ring-1 focus:ring-gold-500/20 pr-10"
                   />
                   <button
