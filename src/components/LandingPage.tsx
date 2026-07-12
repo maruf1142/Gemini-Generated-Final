@@ -291,7 +291,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {/* Help tip */}
               {sandboxMode && (
                 <div className="text-[10px] text-zinc-500 leading-normal bg-zinc-900/50 border border-zinc-800 p-2.5 rounded-lg font-mono">
-                  💡 <span className="text-gold-400/80">SaaS Access:</span> Log in with role name (e.g. <span className="text-zinc-300">"{selectedRole}"</span>) or superadmin credentials (<span className="text-zinc-300">"superadmin"</span>) and the master administrative security key. Default is <span className="text-zinc-300">"admin123"</span>.
+                  💡 <span className="text-gold-400/80">SaaS Access:</span> Log in with role name (e.g. <span className="text-zinc-300">"{selectedRole}"</span>) or superadmin credentials (<span className="text-zinc-300">"superadmin"</span>) and the master administrative security key. Default is <span className="text-zinc-300">"
+                    {selectedRole === 'superadmin' ? 'super123' : 
+                     selectedRole === 'kitchen' ? 'kitchen123' : 
+                     selectedRole === 'owner' ? 'owner123' : 'admin123'}
+                  "</span>.
                 </div>
               )}
 

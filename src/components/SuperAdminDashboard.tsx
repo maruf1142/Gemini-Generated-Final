@@ -9,7 +9,7 @@ import { MenuItem, Role } from '../types';
 import ExcelJS from 'exceljs';
 import { 
   Plus, Edit2, Trash2, Key, Sparkles, Check, X, ShieldAlert, 
-  Eye, Image, Sliders, DollarSign, ArrowLeft, ClipboardList, ChevronRight, Percent,
+  Eye, EyeOff, Image, Sliders, DollarSign, ArrowLeft, ClipboardList, ChevronRight, Percent,
   UploadCloud, FileSpreadsheet
 } from 'lucide-react';
 import { showToast } from './Notification';
@@ -82,6 +82,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
   // Password change states
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
   const [newPasswordInput, setNewPasswordInput] = useState<string>('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState<boolean>(false);
 
   // Quick Numeric Edit Modal states
   const [quickEditConfig, setQuickEditConfig] = useState<QuickEditConfig | null>(null);
@@ -565,6 +566,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
           <button
             onClick={() => {
               setNewPasswordInput('');
+              setShowCurrentPassword(false);
               setShowPasswordModal(true);
             }}
             className="w-full flex items-center justify-center gap-2 bg-zinc-950 text-zinc-400 hover:text-gold-400 py-2 rounded-lg cursor-pointer text-xs font-sans transition-colors border border-zinc-900 hover:border-gold-500/20"
@@ -1471,8 +1473,17 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs text-zinc-400 font-mono block">Current Password</label>
-                <div className="bg-zinc-900 border border-zinc-800 text-zinc-500 py-2 px-3 rounded-lg text-xs font-mono select-none">
-                  {adminPassword}
+                <div className="relative flex items-center">
+                  <div className="w-full bg-zinc-900 border border-zinc-800 text-zinc-500 py-2 pl-3 pr-10 rounded-lg text-xs font-mono select-none">
+                    {showCurrentPassword ? adminPassword : '••••••••'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 text-zinc-500 hover:text-zinc-300 cursor-pointer"
+                  >
+                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -1500,6 +1511,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                   onClick={() => {
                     setShowPasswordModal(false);
                     setNewPasswordInput('');
+                    setShowCurrentPassword(false);
                   }}
                   className="px-4 py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-750 text-xs cursor-pointer"
                 >
