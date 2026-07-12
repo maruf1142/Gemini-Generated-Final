@@ -15,7 +15,9 @@ const customDatabaseId = "ai-studio-restaurantmanage-1e2bc98e-f538-4759-8356-8a4
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with custom database ID
-const db = getFirestore(app, customDatabaseId);
+// Initialize Firestore with custom database ID and long-polling settings to ensure robust connection in iframe sandboxes
+const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, customDatabaseId);
 
 export { app, db };

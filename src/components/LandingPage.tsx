@@ -27,6 +27,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const handleRoleClick = (role: Role) => {
     setSelectedRole(role);
+    setUsername(role); // Prefill default username
+    setPassword('');   // Do not show password by default
+    setShowPassword(false); // Keep password masked by default
     setShowLoginModal(true);
   };
 
