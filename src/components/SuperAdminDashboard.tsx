@@ -15,7 +15,6 @@ import {
 import { showToast } from './Notification';
 
 interface SuperAdminDashboardProps {
-  onNavigateToRole: (role: Role) => void;
   onLogout: () => void;
 }
 
@@ -39,7 +38,7 @@ const LUXURY_PRESET_IMAGES = [
   { url: 'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=500&auto=format&fit=crop&q=60', label: 'Berry Cupcake' }
 ];
 
-export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavigateToRole, onLogout }) => {
+export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onLogout }) => {
   const { 
     currentRole, 
     menuItems, 
@@ -491,7 +490,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
             <button 
               onClick={() => {
                 setActiveTab('menu');
-                onNavigateToRole('superadmin');
               }}
               className={`w-full flex items-center gap-3 py-2.5 px-4 rounded-xl font-medium cursor-pointer transition-all border ${
                 activeTab === 'menu'
@@ -521,43 +519,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onNavi
                 </span>
               )}
             </button>
-            
-            {sandboxMode && (
-              <>
-                <button 
-                  onClick={() => onNavigateToRole('admin')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <ClipboardList className="w-4 h-4" />
-                    Admin Overview
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-
-                <button 
-                  onClick={() => onNavigateToRole('kitchen')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <Sliders className="w-4 h-4" />
-                    Kitchen Crew
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-
-                <button 
-                  onClick={() => onNavigateToRole('owner')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <DollarSign className="w-4 h-4" />
-                    Owner Console
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-              </>
-            )}
           </nav>
         </div>
 

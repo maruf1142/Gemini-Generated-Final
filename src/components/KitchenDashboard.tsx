@@ -10,11 +10,10 @@ import { ChefHat, Check, Clock, ShieldAlert, Key, ClipboardList, ChevronRight, M
 import { showToast } from './Notification';
 
 interface KitchenDashboardProps {
-  onNavigateToRole: (role: Role) => void;
   onLogout: () => void;
 }
 
-export const KitchenDashboard: React.FC<KitchenDashboardProps> = ({ onNavigateToRole, onLogout }) => {
+export const KitchenDashboard: React.FC<KitchenDashboardProps> = ({ onLogout }) => {
   const { currentRole, orders, updateOrderStatus, adminPassword, updatePassword, menuItems, sandboxMode } = useApp();
   
   // Password change states
@@ -134,50 +133,10 @@ export const KitchenDashboard: React.FC<KitchenDashboardProps> = ({ onNavigateTo
               Dashboards View
             </div>
 
-            <button 
-              onClick={() => onNavigateToRole('kitchen')}
-              className="w-full flex items-center gap-3 bg-gold-500/10 text-gold-400 border border-gold-500/25 py-2.5 px-4 rounded-xl font-medium cursor-pointer"
-            >
+            <div className="w-full flex items-center gap-3 bg-gold-500/10 text-gold-400 border border-gold-500/25 py-2.5 px-4 rounded-xl font-medium">
               <ChefHat className="w-4 h-4 text-gold-400 animate-pulse" />
               Kitchen Console
-            </button>
-            
-            {sandboxMode && (
-              <>
-                <button 
-                  onClick={() => onNavigateToRole('admin')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <ClipboardList className="w-4 h-4" />
-                    Admin Overview
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-
-                <button 
-                  onClick={() => onNavigateToRole('superadmin')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <Key className="w-4 h-4" />
-                    Super Admin
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-
-                <button 
-                  onClick={() => onNavigateToRole('owner')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <Flame className="w-4 h-4" />
-                    Owner Console
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-              </>
-            )}
+            </div>
           </nav>
         </div>
 

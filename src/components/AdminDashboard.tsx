@@ -16,11 +16,10 @@ import { OrderCopyPrint } from './OrderCopyPrint';
 import { getBangladeshDateString } from '../utils';
 
 interface AdminDashboardProps {
-  onNavigateToRole: (role: Role) => void;
   onLogout: () => void;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole, onLogout }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const { 
     currentRole, 
     orders, 
@@ -202,43 +201,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToRole
               <ShoppingBag className="w-4 h-4" />
               Product Availability
             </button>
-
-            {sandboxMode && (
-              <>
-                <button 
-                  onClick={() => onNavigateToRole('kitchen')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <Users className="w-4 h-4" />
-                    Kitchen Dashboard
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-
-                <button 
-                  onClick={() => onNavigateToRole('superadmin')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <Key className="w-4 h-4" />
-                    Super Admin
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-
-                <button 
-                  onClick={() => onNavigateToRole('owner')}
-                  className="w-full flex items-center justify-between text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-                >
-                  <span className="flex items-center gap-3">
-                    <DollarSign className="w-4 h-4" />
-                    Owner Console
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                </button>
-              </>
-            )}
           </nav>
         </div>
 
