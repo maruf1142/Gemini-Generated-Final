@@ -539,7 +539,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const verifyPasswordForRole = (role: Role, passwordToCheck: string): boolean => {
-    if (passwordToCheck === superadminPass) return true;
     if (role === 'admin') {
       if (passwordToCheck === adminPass) return true;
       const approvedReset = passwordResetRequests.find(r => r.role === 'admin' && r.status === 'approved' && r.tempPasswordHash);
